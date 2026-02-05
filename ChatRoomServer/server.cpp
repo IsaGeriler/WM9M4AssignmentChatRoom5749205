@@ -1,0 +1,122 @@
+#include <iostream>
+#include <string>
+#include <thread>
+
+#include <conio.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#pragma comment(lib, "Ws2_32.lib")
+
+// Default Buffer Size - 1024 Bytes
+constexpr unsigned int BUFFER_SIZE = 1024;
+
+static int server() {
+	unsigned int port = 65432;
+
+	// Step 1: Initialise WinSock Library
+	// - Version Requested as a Word: 2.2
+	// - Pointer to a WSADATA structure
+	WSADATA wsaData;
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+		std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
+		return 1;
+	}
+
+	// Step 2: Create a socket
+	// - Address Family: IPv4 (AF_INET)
+	// - Socket Type: TCP (SOCK_STREAM)
+	// - Protocol: TCP (IPPROTO_TCP)
+	SOCKET server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (server_socket == INVALID_SOCKET) {
+		std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
+		WSACleanup();
+		return 1;
+	}
+
+	// Step 3: Bind the socket
+	// Returns a socket descriptor or INVALID_SOCKET on error
+	// - s: The socket descriptor
+	// - name: Pointer to a sockaddr structure (containing the address and port)
+	// - namelen : Size of the sockaddr structure
+	sockaddr_in server_address = {};
+	server_address.sin_family = AF_INET;
+	server_address.sin_port = htons(port);		  // Server Port
+	server_address.sin_addr.s_addr = INADDR_ANY;  // Accept any IP connections
+	if (bind(server_socket, (sockaddr*)&server_address, sizeof(server_address)) == SOCKET_ERROR) {
+		std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(server_socket);
+		WSACleanup();
+		return 1;
+	}
+
+	// Step 4: Listen for incoming connections
+	// - s: Socket descriptor
+	// - backlog: Max number of pending connections in the queue (SOMAXCONN: system-defined maximum queue length)
+	if (listen(server_socket, SOMAXCONN) == SOCKET_ERROR) {
+		std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(server_socket);
+		WSACleanup();
+		return 1;
+	}
+	std::cout << "Server is listening on the port " << port << "..." << std::endl;
+
+	// Step 5: Accept Connection
+	// Blocks until a connection is received; unless in non-blocking mode
+	// Returns a new socket for communication with the client
+	// - s: The listening socket descriptor
+	// - addr: Pointer to a sockaddr structure (to store the client's address)
+	// - addrlen: Size of the sockaddr structure
+	sockaddr_in client_address = {};
+	int client_address_len = sizeof(client_address);
+	SOCKET client_socket = accept(server_socket, (sockaddr*)&client_address, &client_address_len);
+	if (client_socket == INVALID_SOCKET) {
+		std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(server_socket);
+		WSACleanup();
+		return 1;
+	}
+
+	// Convert IP Address from binary to string
+	// - Address Family: IPv4 (AF_INET)
+	// - Source IP: Pointer to the binary representation of the IP address (sockaddr_in.sin_addr)
+	// - Destination: Buffer to store the string representation of the IP address
+	// - Size: Size of the buffer
+	char client_ip[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &client_address.sin_addr, client_ip, INET_ADDRSTRLEN);
+	std::cout << "Accepted connection from " << client_ip << ":" << ntohs(client_address.sin_port) << std::endl;
+
+	bool isRunning = true;
+	while (isRunning) {
+		// Step 6: Communicate with the client
+		char buffer[BUFFER_SIZE] = { 0 };
+		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+		if (receivedBytes > 0) {
+			buffer[receivedBytes] = '\0';
+			std::cout << "Received: " << buffer << std::endl;
+
+			// Reverse the string
+			std::string response(buffer);
+			if (response == "/exit") isRunning = false;
+			std::reverse(response.begin(), response.end());
+
+			// Send the reversed string back
+			send(client_socket, response.c_str(), static_cast<int>(response.size()), 0);
+			std::cout << "Reversed string sent back to client." << std::endl;
+		}
+	}
+	std::cout << "Closing the connection!" << std::endl;
+
+	// Step 7: Clean up
+	closesocket(client_socket);
+	closesocket(server_socket);
+	WSACleanup();
+
+	// Terminate successfully
+	return 0;
+}
+
+int main(int argc, char** argv) {
+	server();
+	return 0;
+}
