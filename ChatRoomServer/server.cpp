@@ -11,7 +11,34 @@
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int BUFFER_SIZE = 1024;
 
+static void communicateClient(SOCKET client_socket, int connection) {
+	bool isRunning = true;
+	while (isRunning) {
+		// Step 6: Communicate with the client
+		char buffer[BUFFER_SIZE] = { 0 };
+		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+		if (receivedBytes > 0) {
+			buffer[receivedBytes] = '\0';
+			std::cout << "Received: " << buffer << std::endl;
+
+			// Reverse the string
+			std::string response(buffer);
+			if (response == "/exit") isRunning = false;
+			std::reverse(response.begin(), response.end());
+
+			// Send the reversed string back
+			send(client_socket, response.c_str(), static_cast<int>(response.size()), 0);
+			std::cout << "Reversed string sent back to client." << std::endl;
+		}
+	}
+	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
+
+	// Step 7: Cleanup
+	closesocket(client_socket);
+}
+
 static int server() {
+	// Server Port
 	unsigned int port = 65432;
 
 	// Step 1: Initialise WinSock Library
@@ -61,54 +88,41 @@ static int server() {
 	}
 	std::cout << "Server is listening on the port " << port << "..." << std::endl;
 
-	// Step 5: Accept Connection
-	// Blocks until a connection is received; unless in non-blocking mode
-	// Returns a new socket for communication with the client
-	// - s: The listening socket descriptor
-	// - addr: Pointer to a sockaddr structure (to store the client's address)
-	// - addrlen: Size of the sockaddr structure
-	sockaddr_in client_address = {};
-	int client_address_len = sizeof(client_address);
-	SOCKET client_socket = accept(server_socket, (sockaddr*)&client_address, &client_address_len);
-	if (client_socket == INVALID_SOCKET) {
-		std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
-		closesocket(server_socket);
-		WSACleanup();
-		return 1;
-	}
-
-	// Convert IP Address from binary to string
-	// - Address Family: IPv4 (AF_INET)
-	// - Source IP: Pointer to the binary representation of the IP address (sockaddr_in.sin_addr)
-	// - Destination: Buffer to store the string representation of the IP address
-	// - Size: Size of the buffer
-	char client_ip[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &client_address.sin_addr, client_ip, INET_ADDRSTRLEN);
-	std::cout << "Accepted connection from " << client_ip << ":" << ntohs(client_address.sin_port) << std::endl;
-
-	bool isRunning = true;
-	while (isRunning) {
-		// Step 6: Communicate with the client
-		char buffer[BUFFER_SIZE] = { 0 };
-		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-		if (receivedBytes > 0) {
-			buffer[receivedBytes] = '\0';
-			std::cout << "Received: " << buffer << std::endl;
-
-			// Reverse the string
-			std::string response(buffer);
-			if (response == "/exit") isRunning = false;
-			std::reverse(response.begin(), response.end());
-
-			// Send the reversed string back
-			send(client_socket, response.c_str(), static_cast<int>(response.size()), 0);
-			std::cout << "Reversed string sent back to client." << std::endl;
+	// Multithreaded Server
+	unsigned int connection = 0;
+	while (true) {
+		// Step 5: Accept Connection
+		// Blocks until a connection is received; unless in non-blocking mode
+		// Returns a new socket for communication with the client
+		// - s: The listening socket descriptor
+		// - addr: Pointer to a sockaddr structure (to store the client's address)
+		// - addrlen: Size of the sockaddr structure
+		sockaddr_in client_address = {};
+		int client_address_len = sizeof(client_address);
+		SOCKET client_socket = accept(server_socket, (sockaddr*)&client_address, &client_address_len);
+		if (client_socket == INVALID_SOCKET) {
+			std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
+			closesocket(server_socket);
+			WSACleanup();
+			return 1;
 		}
-	}
-	std::cout << "Closing the connection!" << std::endl;
 
-	// Step 7: Clean up
-	closesocket(client_socket);
+		// Convert IP Address from binary to string
+		// - Address Family: IPv4 (AF_INET)
+		// - Source IP: Pointer to the binary representation of the IP address (sockaddr_in.sin_addr)
+		// - Destination: Buffer to store the string representation of the IP address
+		// - Size: Size of the buffer
+		char client_ip[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &client_address.sin_addr, client_ip, INET_ADDRSTRLEN);
+		std::cout << "Accepted connection from " << client_ip << ":" << ntohs(client_address.sin_port) << std::endl;
+		std::cout << "Connection ID = " << ++connection << std::endl;
+
+		// Step 6: Communicate with the client (Multithreaded)
+		std::thread* t = new std::thread(communicateClient, client_socket, connection);
+	}
+	std::cout << "Server has been shutdown!" << std::endl;
+
+	// Step 7: Cleanup
 	closesocket(server_socket);
 	WSACleanup();
 
