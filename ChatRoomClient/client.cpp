@@ -62,6 +62,32 @@ static void client() {
 	}
 	std::cout << "Connected to the server!" << std::endl;
 
+	// Enter username before connecting
+	std::cout << "Enter Username: ";
+	std::getline(std::cin, message);
+
+	// Step 5: Sending data to the server
+	// - s: The socket descriptor
+	// - buf: Pointer to the data buffer
+	// - len: Length of the data to send
+	// - flags: Default behaviour (0)
+	if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR) {
+		std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(client_socket);
+		WSACleanup();
+		return;
+	}
+	std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
+
+	//char buffer[BUFFER_SIZE] = { 0 };
+	//int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+	//if (receivedBytes > 0) {
+	//	buffer[receivedBytes] = '\0';  // Null byte (End of the string) to terminate the received data
+	//	std::cout << "Received from the server: " << buffer << std::endl;
+	//}
+	//else if (receivedBytes == 0) std::cout << "Connection closed by the server!" << std::endl;
+	//else std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+
 	// Connection Loop
 	while (true) {
 		std::cout << "Send message to server: ";

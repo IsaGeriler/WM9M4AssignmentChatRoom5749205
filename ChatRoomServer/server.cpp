@@ -1,8 +1,10 @@
 #include <iostream>
+#include <map>
+#include <mutex>
 #include <string>
+#include <sstream>
 #include <thread>
 
-#include <conio.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -11,24 +13,56 @@
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int BUFFER_SIZE = 1024;
 
-static void communicateClient(SOCKET client_socket, int connection) {
-	bool isRunning = true;
-	while (isRunning) {
+// Store clients in a vector; paired as <Name, Socket>
+std::map<std::string, SOCKET> active_client_list;
+
+// Mutex for thread safety (std::lock_guard<std::mutex> lock(mtx) for auto locking... or do manual lock/unlock)
+std::mutex mtx;
+
+// Store isRunning as atomic to prevent race conditions
+std::atomic<bool> isRunning = true;
+
+static void communicateClient(SOCKET client_socket, int connection, std::string client) {
+	// Connection Loop
+	while (isRunning.load(std::memory_order_relaxed)) {
 		// Step 6: Communicate with the client
 		char buffer[BUFFER_SIZE] = { 0 };
 		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
 		if (receivedBytes > 0) {
 			buffer[receivedBytes] = '\0';
 			std::cout << "Received: " << buffer << std::endl;
-
-			// Reverse the string
 			std::string response(buffer);
-			if (response == "/exit") isRunning = false;
-			std::reverse(response.begin(), response.end());
 
-			// Send the reversed string back
-			send(client_socket, response.c_str(), static_cast<int>(response.size()), 0);
-			std::cout << "Reversed string sent back to client." << std::endl;
+			// /exit --> Exits the chatroom
+			if (response == "/exit") isRunning = false;
+
+			// Example -- [Command] [UserName] [MessageBody]
+			// /dm [UserName] [MessageBody] --> Sends the [MessageBody] to [UserName]
+			std::stringstream ss(response);
+			std::string command;
+			ss >> command;
+			std::cout << command << std::endl;
+			if (command == "/dm") {
+				std::string user;
+				ss >> user;
+				std::cout << user << std::endl;
+				std::string message;
+				std::getline(ss, message);
+				std::cout << message << std::endl;
+				
+				std::lock_guard<std::mutex> lock(mtx);
+				auto iter = active_client_list.find(user);
+				if (iter != active_client_list.end()) {
+					std::string message;
+					std::getline(ss, message);
+					SOCKET target = iter->second;
+					std::string finalMessage = "[Direct Message from " + client + "] : " + message;
+					send(target, finalMessage.c_str(), static_cast<int>(message.size()), 0);
+					std::cout << "Direct Message sent from client " << client <<  " to client " << iter->first << "." << std::endl;
+				}
+			}
+
+			// [MessageBody] --> Broadcasts the message to everyone in the group -- TO:DO			
 		}
 	}
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
@@ -90,6 +124,8 @@ static int server() {
 
 	// Multithreaded Server
 	unsigned int connection = 0;
+	std::string client_name;
+
 	while (true) {
 		// Step 5: Accept Connection
 		// Blocks until a connection is received; unless in non-blocking mode
@@ -114,13 +150,34 @@ static int server() {
 		// - Size: Size of the buffer
 		char client_ip[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &client_address.sin_addr, client_ip, INET_ADDRSTRLEN);
+		
+		// Check user join or not...
+		char buffer[BUFFER_SIZE] = { 0 };
+		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+		
+		if (receivedBytes > 0) {
+			buffer[receivedBytes] = '\0';
+			std::cout << "Received: " << buffer << std::endl;
+			client_name = buffer;
+			std::lock_guard<std::mutex> lock(mtx);
+			auto iter = active_client_list.find(client_name);
+			if (iter == active_client_list.end()) {
+				SOCKET join_client_socket = iter->second;
+				active_client_list.emplace(client_name, join_client_socket);
+				std::cout << client_name << " has joined the server..." << std::endl;
+			}
+		}
 		std::cout << "Accepted connection from " << client_ip << ":" << ntohs(client_address.sin_port) << std::endl;
 		std::cout << "Connection ID = " << ++connection << std::endl;
 
 		// Step 6: Communicate with the client (Multithreaded)
-		std::thread* t = new std::thread(communicateClient, client_socket, connection);
+		std::thread* t = new std::thread(communicateClient, client_socket, connection, client_name);
+		t->detach();
 	}
 	std::cout << "Server has been shutdown!" << std::endl;
+
+	std::lock_guard<std::mutex> lock(mtx);
+	active_client_list.erase(client_name);
 
 	// Step 7: Cleanup
 	closesocket(server_socket);
