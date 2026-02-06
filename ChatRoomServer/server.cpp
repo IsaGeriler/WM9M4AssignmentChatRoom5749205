@@ -6,7 +6,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int BUFFER_SIZE = 1024;
