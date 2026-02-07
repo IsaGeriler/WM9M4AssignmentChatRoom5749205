@@ -107,7 +107,7 @@ static void client() {
 		WSACleanup();
 		return;
 	}
-	std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
+	// std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
 
 	std::thread t(Receive, client_socket);
 	t.detach();

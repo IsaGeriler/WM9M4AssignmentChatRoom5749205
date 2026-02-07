@@ -40,6 +40,15 @@ static void communicateClient(SOCKET client_socket, int connection) {
 			active_client_list.emplace(client_name, client_socket);
 			std::cout << client_name << " has joined the chat..." << std::endl;
 		}
+
+		// Send user connected message to every client
+		for (auto const& client : active_client_list) {
+			if (client.second != client_socket) {
+				std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
+				send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+				std::cout << "Join Message sent." << std::endl;
+			}
+		}
 	}
 
 	// Connection Loop
@@ -72,13 +81,18 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				
 				std::lock_guard<std::mutex> lock(mtx);
 				auto iter = active_client_list.find(user);
-				if (iter != active_client_list.end()) {
+				if (iter != active_client_list.end()) {  // Target client is active
 					SOCKET target = iter->second;
 					std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 					std::cout << "Direct Message sent from client " << client_name << " to client " << iter->first << "." << std::endl;
 				}
-				else std::cout << "User not found..." << std::endl;
+				else {  // Target client is not connected
+					std::cout << "User not found..." << std::endl;
+					std::string errorMessage = "[SERVER] : User \"" + user + "\" is not connected!";
+					send(client_socket, errorMessage.c_str(), static_cast<int>(errorMessage.size()), 0);
+					std::cout << "Error Message sent to client " << client_name << "." << std::endl;
+				}
 			}
 			else { // Broadcast message
 				std::lock_guard<std::mutex> lock(mtx);
@@ -95,9 +109,16 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
-	mtx.lock();
+	std::lock_guard<std::mutex> lock(mtx);
 	active_client_list.erase(client_name);
-	mtx.unlock();
+
+	// Send the disconnect message to every client
+	for (auto const& client : active_client_list) {
+		std::string finalMessage = "[SERVER] : " + client_name + " has left the chat";
+		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+		std::cout << "Leave Message sent." << std::endl;
+	}
+
 	closesocket(client_socket);
 }
 
