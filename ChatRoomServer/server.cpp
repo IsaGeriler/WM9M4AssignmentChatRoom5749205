@@ -46,6 +46,7 @@ static void communicateClient(SOCKET client_socket, int connection, std::string 
 				std::string user;
 				ss >> user;
 				std::cout << user << std::endl;
+
 				std::string message;
 				std::getline(ss, message);
 				std::cout << message << std::endl;
@@ -53,8 +54,6 @@ static void communicateClient(SOCKET client_socket, int connection, std::string 
 				std::lock_guard<std::mutex> lock(mtx);
 				auto iter = active_client_list.find(user);
 				if (iter != active_client_list.end()) {
-					std::string message;
-					std::getline(ss, message);
 					SOCKET target = iter->second;
 					std::string finalMessage = "[Direct Message from " + client + "] : " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(message.size()), 0);
@@ -162,8 +161,7 @@ static int server() {
 			std::lock_guard<std::mutex> lock(mtx);
 			auto iter = active_client_list.find(client_name);
 			if (iter == active_client_list.end()) {
-				SOCKET join_client_socket = iter->second;
-				active_client_list.emplace(client_name, join_client_socket);
+				active_client_list.emplace(client_name, client_socket);
 				std::cout << client_name << " has joined the server..." << std::endl;
 			}
 		}

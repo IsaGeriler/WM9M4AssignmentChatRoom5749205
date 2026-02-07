@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -9,7 +10,26 @@
 #pragma comment(lib, "ws2_32.lib")
 
 // Default Buffer Size - 1024 Bytes
-constexpr unsigned int BUFFER_SIZE = 1024;
+constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;
+
+static void Receive(SOCKET client_socket) {
+	while (true) {
+		// Receive the reversed sentence from the server
+		char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
+		int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
+		
+		if (bytes_received > 0) {
+			buffer[bytes_received] = '\0'; // Null-terminate the received data
+			std::cout << "Received: " << buffer << std::endl;
+		}
+		else if (bytes_received == 0) {
+			std::cout << "Connection closed by server." << std::endl;
+		}
+		else {
+			std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+		}
+	}
+}
 
 static void client() {
 	const char* host = "127.0.0.1";  // Server IP Address
@@ -79,14 +99,8 @@ static void client() {
 	}
 	std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
 
-	//char buffer[BUFFER_SIZE] = { 0 };
-	//int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-	//if (receivedBytes > 0) {
-	//	buffer[receivedBytes] = '\0';  // Null byte (End of the string) to terminate the received data
-	//	std::cout << "Received from the server: " << buffer << std::endl;
-	//}
-	//else if (receivedBytes == 0) std::cout << "Connection closed by the server!" << std::endl;
-	//else std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+	std::thread t(Receive, client_socket);
+	t.detach();
 
 	// Connection Loop
 	while (true) {
@@ -105,22 +119,6 @@ static void client() {
 			return;
 		}
 		std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
-
-		// Step 6: Receiving data from the server
-		// Returns either number of bytes received, closed (0), or SOCKET_ERROR
-		// - s: The socket descriptor
-		// - buf: Buffer to store received data
-		// - len: Maximum number of bytes (to receive)
-		// - flags: Default behaviour (0)
-		char buffer[BUFFER_SIZE] = { 0 };
-		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-		if (receivedBytes > 0) {
-			buffer[receivedBytes] = '\0';  // Null byte (End of the string) to terminate the received data
-			std::cout << "Received from the server: " << buffer << std::endl;
-		}
-		else if (receivedBytes == 0) std::cout << "Connection closed by the server!" << std::endl;
-		else std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
-		if (message == "/exit") break;
 	}
 	std::cout << "Closing the connection!" << std::endl;
 
