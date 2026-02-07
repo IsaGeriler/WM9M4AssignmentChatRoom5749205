@@ -39,20 +39,14 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\backends\imgui_impl_dx9.cpp">
-      <Filter>imgui\backends</Filter>
-    </ClCompile>
-    <ClCompile Include="imgui\backends\imgui_impl_dx10.cpp">
-      <Filter>imgui\backends</Filter>
-    </ClCompile>
     <ClCompile Include="imgui\backends\imgui_impl_dx11.cpp">
-      <Filter>imgui\backends</Filter>
-    </ClCompile>
-    <ClCompile Include="imgui\backends\imgui_impl_dx12.cpp">
       <Filter>imgui\backends</Filter>
     </ClCompile>
     <ClCompile Include="imgui\backends\imgui_impl_win32.cpp">
       <Filter>imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -77,16 +71,7 @@
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\backends\imgui_impl_dx9.h">
-      <Filter>imgui\backends</Filter>
-    </ClInclude>
-    <ClInclude Include="imgui\backends\imgui_impl_dx10.h">
-      <Filter>imgui\backends</Filter>
-    </ClInclude>
     <ClInclude Include="imgui\backends\imgui_impl_dx11.h">
-      <Filter>imgui\backends</Filter>
-    </ClInclude>
-    <ClInclude Include="imgui\backends\imgui_impl_dx12.h">
       <Filter>imgui\backends</Filter>
     </ClInclude>
     <ClInclude Include="imgui\backends\imgui_impl_win32.h">

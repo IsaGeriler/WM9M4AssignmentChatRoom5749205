@@ -4,8 +4,6 @@
 #include <string>
 #include <thread>
 
-#include <imgui/imgui.h>
-#include <Windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -159,7 +157,7 @@ static void client() {
 	WSACleanup();
 }
 
-int main(int argc, char** argv) {
-	client();
-	return 0;
-}
+//int main(int argc, char** argv) {
+//	client();
+//	return 0;
+//}
