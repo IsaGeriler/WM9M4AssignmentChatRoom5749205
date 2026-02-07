@@ -22,7 +22,26 @@ std::mutex mtx;
 // Store isRunning as atomic to prevent race conditions
 std::atomic<bool> isRunning = true;
 
-static void communicateClient(SOCKET client_socket, int connection, std::string client) {
+static void communicateClient(SOCKET client_socket, int connection) {
+	std::string client_name;
+
+	// Check user join or not...
+	char buffer[BUFFER_SIZE] = { 0 };
+	int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+
+	if (receivedBytes > 0) {
+		buffer[receivedBytes] = '\0';
+		client_name = buffer;
+		std::cout << "Received Name: " << buffer << std::endl;
+		
+		std::lock_guard<std::mutex> lock(mtx);
+		auto iter = active_client_list.find(client_name);
+		if (iter == active_client_list.end()) {
+			active_client_list.emplace(client_name, client_socket);
+			std::cout << client_name << " has joined the chat..." << std::endl;
+		}
+	}
+
 	// Connection Loop
 	while (isRunning.load(std::memory_order_relaxed)) {
 		// Step 6: Communicate with the client
@@ -34,7 +53,7 @@ static void communicateClient(SOCKET client_socket, int connection, std::string 
 			std::string response(buffer);
 
 			// /exit --> Exits the chatroom
-			if (response == "/exit") isRunning = false;
+			if (response == "/exit") break; //isRunning = false;
 
 			// Example -- [Command] [UserName] [MessageBody]
 			// /dm [UserName] [MessageBody] --> Sends the [MessageBody] to [UserName]
@@ -55,9 +74,9 @@ static void communicateClient(SOCKET client_socket, int connection, std::string 
 				auto iter = active_client_list.find(user);
 				if (iter != active_client_list.end()) {
 					SOCKET target = iter->second;
-					std::string finalMessage = "[Direct Message from " + client + "] : " + message;
-					send(target, finalMessage.c_str(), static_cast<int>(message.size()), 0);
-					std::cout << "Direct Message sent from client " << client <<  " to client " << iter->first << "." << std::endl;
+					std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
+					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+					std::cout << "Direct Message sent from client " << client_name <<  " to client " << iter->first << "." << std::endl;
 				}
 			}
 
@@ -67,6 +86,8 @@ static void communicateClient(SOCKET client_socket, int connection, std::string 
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
+	std::lock_guard<std::mutex> lock(mtx);
+	active_client_list.erase(client_name);
 	closesocket(client_socket);
 }
 
@@ -123,7 +144,6 @@ static int server() {
 
 	// Multithreaded Server
 	unsigned int connection = 0;
-	std::string client_name;
 
 	while (true) {
 		// Step 5: Accept Connection
@@ -150,32 +170,14 @@ static int server() {
 		char client_ip[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &client_address.sin_addr, client_ip, INET_ADDRSTRLEN);
 		
-		// Check user join or not...
-		char buffer[BUFFER_SIZE] = { 0 };
-		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-		
-		if (receivedBytes > 0) {
-			buffer[receivedBytes] = '\0';
-			std::cout << "Received: " << buffer << std::endl;
-			client_name = buffer;
-			std::lock_guard<std::mutex> lock(mtx);
-			auto iter = active_client_list.find(client_name);
-			if (iter == active_client_list.end()) {
-				active_client_list.emplace(client_name, client_socket);
-				std::cout << client_name << " has joined the server..." << std::endl;
-			}
-		}
 		std::cout << "Accepted connection from " << client_ip << ":" << ntohs(client_address.sin_port) << std::endl;
 		std::cout << "Connection ID = " << ++connection << std::endl;
 
 		// Step 6: Communicate with the client (Multithreaded)
-		std::thread* t = new std::thread(communicateClient, client_socket, connection, client_name);
+		std::thread* t = new std::thread(communicateClient, client_socket, connection);
 		t->detach();
 	}
 	std::cout << "Server has been shutdown!" << std::endl;
-
-	std::lock_guard<std::mutex> lock(mtx);
-	active_client_list.erase(client_name);
 
 	// Step 7: Cleanup
 	closesocket(server_socket);

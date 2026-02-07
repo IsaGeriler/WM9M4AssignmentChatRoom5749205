@@ -20,7 +20,11 @@ static void Receive(SOCKET client_socket) {
 		
 		if (bytes_received > 0) {
 			buffer[bytes_received] = '\0'; // Null-terminate the received data
-			std::cout << "Received: " << buffer << std::endl;
+
+			std::cout << '\r' << "                       " << '\r';
+			std::cout << buffer << std::endl;
+			std::cout << "Send message to server: ";
+			std::cout.flush();
 		}
 		else if (bytes_received == 0) {
 			std::cout << "Connection closed by server." << std::endl;
@@ -106,6 +110,9 @@ static void client() {
 	while (true) {
 		std::cout << "Send message to server: ";
 		std::getline(std::cin, message);
+
+		// /exit --> Exits the chatroom
+		if (message == "/exit") break;
 
 		// Step 5: Sending data to the server
 		// - s: The socket descriptor
