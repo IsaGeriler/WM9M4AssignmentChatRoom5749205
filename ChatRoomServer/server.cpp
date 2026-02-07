@@ -43,7 +43,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	}
 
 	// Connection Loop
-	while (isRunning.load(std::memory_order_relaxed)) {
+	while (true) { //isRunning
 		// Step 6: Communicate with the client
 		char buffer[BUFFER_SIZE] = { 0 };
 		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
@@ -76,8 +76,9 @@ static void communicateClient(SOCKET client_socket, int connection) {
 					SOCKET target = iter->second;
 					std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-					std::cout << "Direct Message sent from client " << client_name <<  " to client " << iter->first << "." << std::endl;
+					std::cout << "Direct Message sent from client " << client_name << " to client " << iter->first << "." << std::endl;
 				}
+				else std::cout << "User not found..." << std::endl;
 			}
 
 			// [MessageBody] --> Broadcasts the message to everyone in the group -- TO:DO			
@@ -86,8 +87,9 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
-	std::lock_guard<std::mutex> lock(mtx);
+	mtx.lock();
 	active_client_list.erase(client_name);
+	mtx.unlock();
 	closesocket(client_socket);
 }
 

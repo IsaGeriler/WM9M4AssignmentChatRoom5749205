@@ -12,6 +12,9 @@
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;
 
+// Store isRunning as atomic to prevent race conditions
+std::atomic<bool> isRunning = true;
+
 static void Receive(SOCKET client_socket) {
 	while (true) {
 		// Receive the reversed sentence from the server
@@ -20,7 +23,6 @@ static void Receive(SOCKET client_socket) {
 		
 		if (bytes_received > 0) {
 			buffer[bytes_received] = '\0'; // Null-terminate the received data
-
 			std::cout << '\r' << "                       " << '\r';
 			std::cout << buffer << std::endl;
 			std::cout << "Send message to server: ";
@@ -29,9 +31,13 @@ static void Receive(SOCKET client_socket) {
 		else if (bytes_received == 0) {
 			std::cout << "Connection closed by server." << std::endl;
 		}
+		else if (!isRunning) {
+			return; 
+		}
 		else {
 			std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
 		}
+		if (!isRunning) return;
 	}
 }
 
@@ -107,12 +113,12 @@ static void client() {
 	t.detach();
 
 	// Connection Loop
-	while (true) {
+	while (isRunning) {
 		std::cout << "Send message to server: ";
 		std::getline(std::cin, message);
 
 		// /exit --> Exits the chatroom
-		if (message == "/exit") break;
+		if (message == "/exit") isRunning = false;
 
 		// Step 5: Sending data to the server
 		// - s: The socket descriptor
