@@ -13,41 +13,52 @@
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int BUFFER_SIZE = 1024;
 
-// Store clients in a vector; paired as <Name, Socket>
-std::map<std::string, SOCKET> active_client_list;
+// Store active clients in a map; paired as <ClientName, ClientSocket>
+std::map<std::string, SOCKET> active_clients;
 
-// Mutex for thread safety (std::lock_guard<std::mutex> lock(mtx) for auto locking... or do manual lock/unlock)
+// Mutex for thread safety
+// std::lock_guard<std::mutex> lock(mtx) for auto locking
+// ...or do manual mtx.lock() & mtx.unlock()
 std::mutex mtx;
 
 // Store isRunning as atomic to prevent race conditions
 std::atomic<bool> isRunning = true;
 
 static void communicateClient(SOCKET client_socket, int connection) {
+	// Username Loop
 	std::string client_name;
+	while (true) {
+		// Check user join or not...
+		char buffer[BUFFER_SIZE] = { 0 };
+		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
 
-	// Check user join or not...
-	char buffer[BUFFER_SIZE] = { 0 };
-	int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+		if (receivedBytes > 0) {
+			buffer[receivedBytes] = '\0';
+			client_name = buffer;
+			std::cout << "Received Name: " << buffer << std::endl;
 
-	if (receivedBytes > 0) {
-		buffer[receivedBytes] = '\0';
-		client_name = buffer;
-		std::cout << "Received Name: " << buffer << std::endl;
-		
-		std::lock_guard<std::mutex> lock(mtx);
-		auto iter = active_client_list.find(client_name);
-		if (iter == active_client_list.end()) {
-			active_client_list.emplace(client_name, client_socket);
-			std::cout << client_name << " has joined the chat..." << std::endl;
-		}
-
-		// Send user connected message to every client
-		for (auto const& client : active_client_list) {
-			if (client.second != client_socket) {
-				std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
-				send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-				std::cout << "Join Message sent." << std::endl;
+			std::lock_guard<std::mutex> lock(mtx);
+			auto iter = active_clients.find(client_name);
+			if (iter == active_clients.end()) {
+				active_clients.emplace(client_name, client_socket);
+				std::cout << client_name << " has joined the chat..." << std::endl;
+				std::string finalMessage = "UNIQUE";
+				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+				break;
 			}
+			else {
+				std::string finalMessage = "NOT_UNIQUE";
+				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+			}
+		}
+	}
+
+	// Send user connected message to every client
+	for (auto const& client : active_clients) {
+		if (client.second != client_socket) {
+			std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
+			send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+			std::cout << "Join Message sent." << std::endl;
 		}
 	}
 
@@ -80,8 +91,8 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				std::cout << message << std::endl;
 				
 				std::lock_guard<std::mutex> lock(mtx);
-				auto iter = active_client_list.find(user);
-				if (iter != active_client_list.end()) {  // Target client is active
+				auto iter = active_clients.find(user);
+				if (iter != active_clients.end()) {  // Target client is active
 					SOCKET target = iter->second;
 					std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
@@ -96,7 +107,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 			}
 			else { // Broadcast message
 				std::lock_guard<std::mutex> lock(mtx);
-				for (auto const& client : active_client_list) {
+				for (auto const& client : active_clients) {
 					if (client.second != client_socket) {
 						std::string finalMessage = "[Broadcast Message from " + client_name + "] : " + response;
 						send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
@@ -110,10 +121,10 @@ static void communicateClient(SOCKET client_socket, int connection) {
 
 	// Step 7: Cleanup
 	std::lock_guard<std::mutex> lock(mtx);
-	active_client_list.erase(client_name);
+	active_clients.erase(client_name);
 
 	// Send the disconnect message to every client
-	for (auto const& client : active_client_list) {
+	for (auto const& client : active_clients) {
 		std::string finalMessage = "[SERVER] : " + client_name + " has left the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 		std::cout << "Leave Message sent." << std::endl;

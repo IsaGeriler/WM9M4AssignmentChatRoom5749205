@@ -12,8 +12,9 @@
 // Default Buffer Size - 1024 Bytes
 constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;
 
-// Store isRunning as atomic to prevent race conditions
+// Store isRunning & selectedUsername as atomic to prevent race conditions
 std::atomic<bool> isRunning = true;
+std::atomic<bool> selectedUsername = false;
 
 static void Receive(SOCKET client_socket) {
 	while (true) {
@@ -37,7 +38,6 @@ static void Receive(SOCKET client_socket) {
 		else {
 			std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
 		}
-		if (!isRunning) return;
 	}
 }
 
@@ -92,23 +92,40 @@ static void client() {
 	}
 	std::cout << "Connected to the server!" << std::endl;
 
-	// Enter username before connecting
-	std::cout << "Enter Username: ";
-	std::getline(std::cin, message);
+	// Loop before launching the thread; to see if two users try to enter same name
+	// If unique - break; if same - request entering name again until success...
+	while (!selectedUsername) {
+		// Enter username before connecting
+		std::cout << "Enter Username: ";
+		std::getline(std::cin, message);
 
-	// Step 5: Sending data to the server
-	// - s: The socket descriptor
-	// - buf: Pointer to the data buffer
-	// - len: Length of the data to send
-	// - flags: Default behaviour (0)
-	if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR) {
-		std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-		closesocket(client_socket);
-		WSACleanup();
-		return;
+		// Step 5: Sending data to the server
+		// - s: The socket descriptor
+		// - buf: Pointer to the data buffer
+		// - len: Length of the data to send
+		// - flags: Default behaviour (0)
+		if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR) {
+			std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
+			closesocket(client_socket);
+			WSACleanup();
+			return;
+		}
+		// std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
+
+		// Receive the "UNIQUE" or "NOT_UNIQUE" from the server
+		char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
+		int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
+		if (bytes_received > 0) {
+			buffer[bytes_received] = '\0'; // Null-terminate the received data
+			std::cout << "Received from server: " << buffer << std::endl;
+			if (strcmp(buffer, "UNIQUE") == 0) selectedUsername = true;
+			else if (strcmp(buffer, "NOT_UNIQUE") == 0) std::cout << "Username already taken, try again!" << std::endl;
+		}
+		else if (bytes_received == 0) std::cout << "Connection closed by server." << std::endl;
+		else std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
 	}
-	// std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
 
+	// Username taken, now we can launch the thread
 	std::thread t(Receive, client_socket);
 	t.detach();
 
