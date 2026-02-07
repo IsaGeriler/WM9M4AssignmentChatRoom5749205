@@ -80,8 +80,16 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				}
 				else std::cout << "User not found..." << std::endl;
 			}
-
-			// [MessageBody] --> Broadcasts the message to everyone in the group -- TO:DO			
+			else { // Broadcast message
+				std::lock_guard<std::mutex> lock(mtx);
+				for (auto const& client : active_client_list) {
+					if (client.second != client_socket) {
+						std::string finalMessage = "[Broadcast Message from " + client_name + "] : " + response;
+						send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+						std::cout << "Broadcast Message sent from client " << client_name << "." << std::endl;
+					}
+				}
+			}
 		}
 	}
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;

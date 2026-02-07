@@ -131,7 +131,7 @@ static void client() {
 			WSACleanup();
 			return;
 		}
-		std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
+		// std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
 	}
 	std::cout << "Closing the connection!" << std::endl;
 
