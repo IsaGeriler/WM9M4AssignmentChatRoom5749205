@@ -24,7 +24,7 @@ static void Receive(SOCKET client_socket) {
 		
 		if (bytes_received > 0) {
 			buffer[bytes_received] = '\0'; // Null-terminate the received data
-			std::cout << '\r' << "                       " << '\r';
+			std::cout << '\r' << "                        " << '\r';
 			std::cout << buffer << std::endl;
 			std::cout << "Send message to server: ";
 			std::cout.flush();
@@ -117,7 +117,7 @@ static void client() {
 		int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 		if (bytes_received > 0) {
 			buffer[bytes_received] = '\0'; // Null-terminate the received data
-			std::cout << "Received from server: " << buffer << std::endl;
+			// std::cout << "Received from server: " << buffer << std::endl;
 			if (strcmp(buffer, "UNIQUE") == 0) selectedUsername = true;
 			else if (strcmp(buffer, "NOT_UNIQUE") == 0) std::cout << "Username already taken, try again!" << std::endl;
 		}

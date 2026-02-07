@@ -83,7 +83,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 			std::cout << command << std::endl;
 			if (command == "/dm") {
 				std::string user;
-				ss >> user;
+				ss >> user >> std::ws;
 				std::cout << user << std::endl;
 
 				std::string message;
