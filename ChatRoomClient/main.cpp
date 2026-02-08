@@ -8,6 +8,11 @@
 
 #include "sound.h"
 
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#pragma comment(lib, "ws2_32.lib")
+
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_win32.h>
 #include <imgui/backends/imgui_impl_dx11.h>
@@ -19,11 +24,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-//#include <winsock2.h>
-//#include <ws2tcpip.h>
-//
-//#pragma comment(lib, "ws2_32.lib")
 
 // Data
 static ID3D11Device*            g_pd3dDevice = nullptr;
@@ -41,125 +41,38 @@ void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // --- CLIENT CODES FOR CHAT ROOM ---
-//constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;  // Default Buffer Size - 1024 Bytes
-//std::atomic<bool> isRunning = true;                 // Storing as atomic to prevent race conditions
-//std::atomic<bool> selectedUsername = false;         // Storing as atomic to prevent race conditions
+constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;  // Default Buffer Size - 1024 Bytes
+std::atomic<bool> isRunning = true;                 // Storing as atomic to prevent race conditions
+std::atomic<bool> selectedUsername = false;         // Storing as atomic to prevent race conditions
 
 // Receive Loop
-//static void Receive(SOCKET client_socket) {
-//    while (true) {
-//        // Receive the reversed sentence from the server
-//        char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
-//        int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
-//
-//        if (bytes_received > 0) {
-//            buffer[bytes_received] = '\0'; // Null-terminate the received data
-//            std::cout << '\r' << "                        " << '\r';
-//            std::cout << buffer << std::endl;
-//            std::cout << "Send message to server: ";
-//            std::cout.flush();
-//        }
-//        else if (bytes_received == 0) {
-//            std::cout << "Connection closed by server." << std::endl;
-//        }
-//        else if (!isRunning) {
-//            return;
-//        }
-//        else {
-//            std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
-//        }
-//    }
-//}
-//
-//// Client logic before GUI Programming
+static void Receive(SOCKET client_socket) {
+    while (true) {
+        // Receive the reversed sentence from the server
+        char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
+        int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
+
+        if (bytes_received > 0) {
+            buffer[bytes_received] = '\0'; // Null-terminate the received data
+            std::cout << '\r' << "                        " << '\r';
+            std::cout << buffer << std::endl;
+            std::cout << "Send message to server: ";
+            std::cout.flush();
+        }
+        else if (bytes_received == 0) {
+            std::cout << "Connection closed by server." << std::endl;
+        }
+        else if (!isRunning) {
+            return;
+        }
+        else {
+            std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+        }
+    }
+}
+
+// Client logic before GUI Programming
 //static void client() {
-//    const char* host = "127.0.0.1";  // Server IP Address
-//    unsigned int port = 65432;
-//    std::string message = "Hello, server!";
-//
-//    // Step 1: Initialise WinSock Library
-//    // - Version Requested as a Word: 2.2
-//    // - Pointer to a WSADATA structure
-//    WSADATA wsaData;
-//    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-//        std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
-//        return;
-//    }
-//
-//    // Step 2: Create a socket
-//    // - Address Family: IPv4 (AF_INET)
-//    // - Socket Type: TCP (SOCK_STREAM)
-//    // - Protocol: TCP (IPPROTO_TCP)
-//    SOCKET client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-//    if (client_socket == INVALID_SOCKET) {
-//        std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
-//        WSACleanup();
-//        return;
-//    }
-//
-//    // Step 3: Convert an IP address from string to binary
-//    // - Address Family: IPv4 (AF_INET)
-//    // - Source IP String: host ("127.0.0.1")
-//    // - Destination Pointer: Sturcture holding binary representation
-//    sockaddr_in server_address = {};
-//    server_address.sin_family = AF_INET;
-//    server_address.sin_port = htons(port);
-//    if (inet_pton(AF_INET, host, &server_address.sin_addr) <= 0) {
-//        std::cerr << "Invalid address/Address not supported" << std::endl;
-//        closesocket(client_socket);
-//        WSACleanup();
-//        return;
-//    }
-//
-//    // Step 4: Establishing the connection
-//    // - s: The socket descriptor
-//    // - name: Pointer to a sockaddr structure (containing the server's address and port)
-//    // - namelen: Size of the sockaddr structure
-//    if (connect(client_socket, reinterpret_cast<sockaddr*>(&server_address), sizeof(server_address)) == SOCKET_ERROR) {
-//        std::cerr << "Connection failed with error: " << WSAGetLastError() << std::endl;
-//        closesocket(client_socket);
-//        WSACleanup();
-//        return;
-//    }
-//    std::cout << "Connected to the server!" << std::endl;
-//
-//    // Loop before launching the thread; to see if two users try to enter same name
-//    // If unique - break; if same - request entering name again until success...
-//    while (!selectedUsername) {
-//        // Enter username before connecting
-//        std::cout << "Enter Username: ";
-//        std::getline(std::cin, message);
-//
-//        // Step 5: Sending data to the server
-//        // - s: The socket descriptor
-//        // - buf: Pointer to the data buffer
-//        // - len: Length of the data to send
-//        // - flags: Default behaviour (0)
-//        if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR) {
-//            std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-//            closesocket(client_socket);
-//            WSACleanup();
-//            return;
-//        }
-//        // std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
-//
-//        // Receive the "UNIQUE" or "NOT_UNIQUE" from the server
-//        char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
-//        int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
-//        if (bytes_received > 0) {
-//            buffer[bytes_received] = '\0'; // Null-terminate the received data
-//            // std::cout << "Received from server: " << buffer << std::endl;
-//            if (strcmp(buffer, "UNIQUE") == 0) selectedUsername = true;
-//            else if (strcmp(buffer, "NOT_UNIQUE") == 0) std::cout << "Username already taken, try again!" << std::endl;
-//        }
-//        else if (bytes_received == 0) std::cout << "Connection closed by server." << std::endl;
-//        else std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
-//    }
-//
-//    // Username taken, now we can launch the thread
-//    std::thread t(Receive, client_socket);
-//    t.detach();
-//
 //    // Connection Loop
 //    while (isRunning) {
 //        std::cout << "Send message to server: ";
@@ -192,7 +105,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Main code
 int main(int, char**)
 {
-    // client();
     // Make process DPI aware and obtain main monitor scale
     ImGui_ImplWin32_EnableDpiAwareness();
     float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
@@ -251,6 +163,11 @@ int main(int, char**)
     //IM_ASSERT(font != nullptr);
 
     // Chat Room Client States
+    std::atomic<bool> done = false;
+    std::atomic<bool> isNotConnected = true;
+
+    std::string login_status = "";
+
     bool show_login_window = true;
     bool show_chat_window = true;
     bool show_private_window = true;
@@ -272,10 +189,60 @@ int main(int, char**)
     // Views the current chat; default is set as "Broadcast"
     std::string currentChat = "Broadcast";
 
+    // CLIENT.CPP CODES BEFORE THE MAIN LOOP
+    const char* host = "127.0.0.1";
+    unsigned int port = 65432;
+    std::string message = "Hello, server!";
+
+    // Step 1: Initialise WinSock Library
+    // - Version Requested as a Word: 2.2
+    // - Pointer to a WSADATA structure
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
+        return 1;
+    }
+
+    // Step 2: Create a socket
+    // - Address Family: IPv4 (AF_INET)
+    // - Socket Type: TCP (SOCK_STREAM)
+    // - Protocol: TCP (IPPROTO_TCP)
+    SOCKET client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client_socket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Step 3: Convert an IP address from string to binary
+    // - Address Family: IPv4 (AF_INET)
+    // - Source IP String: host ("127.0.0.1")
+    // - Destination Pointer: Sturcture holding binary representation
+    sockaddr_in server_address = {};
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(port);
+    if (inet_pton(AF_INET, host, &server_address.sin_addr) <= 0) {
+        std::cerr << "Invalid address/Address not supported" << std::endl;
+        closesocket(client_socket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Step 4: Establishing the connection
+    // - s: The socket descriptor
+    // - name: Pointer to a sockaddr structure (containing the server's address and port)
+    // - namelen: Size of the sockaddr structure
+    if (connect(client_socket, reinterpret_cast<sockaddr*>(&server_address), sizeof(server_address)) == SOCKET_ERROR) {
+        std::cerr << "Connection failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(client_socket);
+        WSACleanup();
+        return 1;
+    }
+    std::cout << "Connected to the server!" << std::endl;
+    // CLIENT.CPP CODES BEFORE THE MAIN LOOP END
+
     // Main loop
-    bool done = false;
-    bool isConnected = true;  // Placeholder for GUI Prototyping //
-    while (!done)
+    while (!done.load(std::memory_order_relaxed))  // !done
     {
         // Poll and handle messages (inputs, window resize, etc.)
         // See the WndProc() function below for our to dispatch events to the Win32 backend.
@@ -285,7 +252,7 @@ int main(int, char**)
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
             if (msg.message == WM_QUIT)
-                done = true;
+                done.store(true, std::memory_order_relaxed);  // done = true;
         }
         if (done)
             break;
@@ -314,7 +281,7 @@ int main(int, char**)
 
         // --- DearImGui Codes for Chat Room Start From Here... ---
         // User has not logged in to the server
-        if (!isConnected)
+        if (isNotConnected.load(std::memory_order_relaxed))
         {
             ImGui::SetNextWindowSize(ImVec2(800, 150));
             ImGui::SetWindowSize(ImVec2(100, 100));
@@ -329,19 +296,38 @@ int main(int, char**)
 
             ImGui::SameLine();
             if (ImGui::Button("Login")) login_button_clicked = !login_button_clicked;
-            
+
+            ImGui::Text(login_status.c_str());
             if (login_button_clicked)
             {
-                ImGui::Text("This is only for debugging... connection logic will go here...");
-                // TO:DO - Connection Logic
-                // isConnected = !isConnected;
-            }
+                if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR) {
+                    login_status = "Send failed with error: " + WSAGetLastError() + '\n';
+                    closesocket(client_socket);
+                    WSACleanup();
+                    return 1;
+                }
+                // Receive the "UNIQUE" or "NOT_UNIQUE" from the server
+                char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
+                int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 
+                if (bytes_received > 0) {
+                    buffer[bytes_received] = '\0';  // Null-terminate the received data
+                    if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);
+                    else if (strcmp(buffer, "NOT_UNIQUE") == 0) login_status = "Username already taken, try again!";
+                }
+                else if (bytes_received == 0) login_status = "Connection closed by server.";
+                else login_status = "Receive failed with error: " + WSAGetLastError();
+                login_button_clicked = !login_button_clicked;
+            }
             ImGui::End();
         }
         // User has logged in to the server
         else
         {
+            // Username taken, now we can launch the thread
+            std::thread t(Receive, client_socket);
+            t.detach();
+
             ImGui::SetNextWindowSize(ImVec2(900, 615));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
