@@ -345,21 +345,23 @@ int main(int, char**)
             ImGui::Begin("Chat Client", &show_chat_window, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
             ImGui::BeginChild("Users", ImVec2(225, 500), true);
             ImGui::Text("Users:");
-            if (ImGui::BeginTable("Users", 1, ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_BordersOuterV))
-            {
-                ImGui::EndTable();
-            }
-            // ImGui::Text("Users:");
+            ImGui::Separator();
+            ImGui::BeginChild("UserList", ImVec2(0, 0), false);
+            
             // List the users here... potentially make a request to server like "/list"
             // When clicked on a user, make sure to open another window for DMs
+
+            ImGui::EndChild();
             ImGui::EndChild();
 
             ImGui::SameLine();
             
             ImGui::BeginChild("Messages", ImVec2(635, 500), true);
             ImGui::SetScrollHereY(1.f);
-            // List the broadcasting message here... implement the broadcast logic here
+
+            // List the broadcasting message here... implement the broadcast logGUI prototyping for Client (no connection logic yet, just visuals)ic here
             // Nice to have: Give each user an unique color to distinguish each other
+
             ImGui::EndChild();
             
             ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer));
