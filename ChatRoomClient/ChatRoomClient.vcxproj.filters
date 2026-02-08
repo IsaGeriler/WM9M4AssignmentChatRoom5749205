@@ -92,6 +92,18 @@
     <ClInclude Include="FMOD\fmod_errors.h">
       <Filter>FMOD</Filter>
     </ClInclude>
+    <ClInclude Include="FMOD\fmod_codec.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod_dsp.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod_output.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod_dsp_effects.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="FMOD\fmod.dll">

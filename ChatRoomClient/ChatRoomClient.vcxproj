@@ -146,6 +146,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FMOD\fmod_codec.h" />
+    <ClInclude Include="FMOD\fmod_dsp.h" />
+    <ClInclude Include="FMOD\fmod_dsp_effects.h" />
+    <ClInclude Include="FMOD\fmod_output.h" />
     <ClInclude Include="sound.h" />
     <ClInclude Include="FMOD\fmod.h" />
     <ClInclude Include="FMOD\fmod.hpp" />
