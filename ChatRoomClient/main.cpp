@@ -253,15 +253,18 @@ int main(int, char**)
     // Chat Room Client States
     bool show_login_window = true;
     bool show_chat_window = true;
+    bool show_private_window = true;
 
     bool login_button_clicked = false;
     bool send_button_clicked = false;
+    bool send_private_button_clicked = false;
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Username and Message Buffers (as a char array/string)
     char usernameBuffer[32]{};
     char messageBuffer[256]{};
+    char privateMessageBuffer[256]{};
 
     // Store the "usernames - chats" as a pair, in a map (first element being Broadcast chat)
     std::map<std::string, std::vector<std::string>> allChatsHistory;
@@ -342,7 +345,7 @@ int main(int, char**)
             ImGui::SetNextWindowSize(ImVec2(900, 615));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
-            ImGui::Begin("Chat Client", &show_chat_window, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+            ImGui::Begin("Chat Client", &show_chat_window, ImGuiWindowFlags_NoResize);
             ImGui::BeginChild("Users", ImVec2(225, 500), true);
             ImGui::Text("Users:");
             ImGui::Separator();
@@ -372,6 +375,27 @@ int main(int, char**)
             ImGui::SameLine();
             if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
             if (send_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
+
+            // Direct Message Window Prototype
+            ImGui::SetNextWindowSize(ImVec2(1000, 400));
+            ImGui::SetWindowSize(ImVec2(100, 100));
+
+            ImGui::Begin("Private Chat with [Someone]", &show_private_window, ImGuiWindowFlags_NoResize);
+            
+            ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
+            ImGui::SetScrollHereY(1.f);
+            ImGui::EndChild();
+
+            ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer));
+
+            ImGui::SameLine();
+            ImGui::Text("Private Message");
+
+            ImGui::SameLine();
+            if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
+            if (send_private_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
+            ImGui::End();
+            // Direct Message Window Prototype End
 
             ImGui::End();
         }
