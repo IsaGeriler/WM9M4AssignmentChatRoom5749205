@@ -19,6 +19,9 @@
     <Filter Include="imgui\backends">
       <UniqueIdentifier>{803aa134-9784-47a9-b1f5-1af1dfc06d3e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FMOD">
+      <UniqueIdentifier>{66b45c28-dd61-4045-b366-f329806b297c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="client.cpp">
@@ -50,7 +53,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="audio.h">
+    <ClInclude Include="sound.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="imgui\imconfig.h">
@@ -77,5 +80,27 @@
     <ClInclude Include="imgui\backends\imgui_impl_win32.h">
       <Filter>imgui\backends</Filter>
     </ClInclude>
+    <ClInclude Include="FMOD\fmod.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod.hpp">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod_common.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+    <ClInclude Include="FMOD\fmod_errors.h">
+      <Filter>FMOD</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="FMOD\fmod.dll">
+      <Filter>FMOD</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="FMOD\fmod_vc.lib">
+      <Filter>FMOD</Filter>
+    </Library>
   </ItemGroup>
 </Project>

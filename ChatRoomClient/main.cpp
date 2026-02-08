@@ -12,6 +12,15 @@
 #include <d3d11.h>
 #include <tchar.h>
 
+#include <iostream>
+#include <string>
+#include <thread>
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#pragma comment(lib, "ws2_32.lib")
+
 // Data
 static ID3D11Device*            g_pd3dDevice = nullptr;
 static ID3D11DeviceContext*     g_pd3dDeviceContext = nullptr;
@@ -26,6 +35,10 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// CLIENT CODES FOR CHAT ROOM
+std::atomic<bool> isRunning = true;
+std::atomic<bool> selectedUsername = false;
 
 // Main code
 int main(int, char**)
