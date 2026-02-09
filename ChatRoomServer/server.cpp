@@ -56,7 +56,8 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	// Send user connected message to every client
 	for (auto const& client : active_clients) {
 		if (client.second != client_socket) {
-			std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
+			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
+			std::string finalMessage = "[SERVER] " + client_name + " has joined the chat";
 			send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 			std::cout << "Join Message sent." << std::endl;
 		}
@@ -94,13 +95,15 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				auto iter = active_clients.find(user);
 				if (iter != active_clients.end()) {  // Target client is active
 					SOCKET target = iter->second;
-					std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
+					// std::string finalMessage = "[Direct Message from " + client_name + "] : " + message;
+					std::string finalMessage = "[DirectMessage] " + client_name + " " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 					std::cout << "Direct Message sent from client " << client_name << " to client " << iter->first << "." << std::endl;
 				}
 				else {  // Target client is not connected
 					std::cout << "User not found..." << std::endl;
-					std::string errorMessage = "[SERVER] : User \"" + user + "\" is not connected!";
+					// std::string errorMessage = "[SERVER] : User \"" + user + "\" is not connected!";
+					std::string errorMessage = "[SERVER] User \"" + user + "\" is not connected!";
 					send(client_socket, errorMessage.c_str(), static_cast<int>(errorMessage.size()), 0);
 					std::cout << "Error Message sent to client " << client_name << "." << std::endl;
 				}
@@ -109,7 +112,8 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				std::lock_guard<std::mutex> lock(mtx);
 				for (auto const& client : active_clients) {
 					if (client.second != client_socket) {
-						std::string finalMessage = "[Broadcast Message from " + client_name + "] : " + response;
+						// std::string finalMessage = "[Broadcast Message from " + client_name + "] : " + response;
+						std::string finalMessage = "[BroadcastMessage] " + client_name + " " + response;
 						send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 						std::cout << "Broadcast Message sent from client " << client_name << "." << std::endl;
 					}
@@ -125,7 +129,8 @@ static void communicateClient(SOCKET client_socket, int connection) {
 
 	// Send the disconnect message to every client
 	for (auto const& client : active_clients) {
-		std::string finalMessage = "[SERVER] : " + client_name + " has left the chat";
+		// std::string finalMessage = "[SERVER] : " + client_name + " has left the chat";
+		std::string finalMessage = "[SERVER] " + client_name + " has left the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 		std::cout << "Leave Message sent." << std::endl;
 	}
