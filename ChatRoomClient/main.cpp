@@ -21,7 +21,9 @@
 
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <string>
+#include <sstream>
 #include <thread>
 #include <vector>
 
@@ -43,34 +45,99 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // --- CLIENT CODES FOR CHAT ROOM ---
 constexpr unsigned int DEFAULT_BUFFER_SIZE = 1024;  // Default Buffer Size - 1024 Bytes
 std::atomic<bool> isRunning = true;                 // Storing as atomic to prevent race conditions
-std::atomic<bool> selectedUsername = false;         // Storing as atomic to prevent race conditions
+std::atomic<bool> threadStarted = false;            // Storing as atomic to prevent race conditions
+std::mutex mtx_client;
+
+// Store the "usernames - chats" as a pair, in a map (first element of the list being "Broadcast" chat)
+std::map<std::string, std::vector<std::string>> allChatsHistory;
+std::vector<std::string> activeChats;
+std::vector<std::string> activeClients;
+
+// Views the current chat; default is set as "Broadcast"
+std::string currentChat = "Broadcast";
 
 // Receive Loop
 static void Receive(SOCKET client_socket) {
     Sound sound;
-    while (true) {
-        // Receive the reversed sentence from the server
+    while (true/*isRunning.load(std::memory_order_relaxed)*/) {
+        // Receive the response from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
         int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 
-        if (bytes_received > 0) {
+        std::string command = "";
+        std::string sender_username = "";
+        std::string target_username = "";  // for DirectMessage only
+        std::string message = "";
+
+        if (bytes_received > 0)
+        {
             buffer[bytes_received] = '\0'; // Null-terminate the received data
-            // Prototype purposes for now
-            sound.playBroadcastSound();  // If it's a Broadcast
-            sound.playDmSound();         // If it's a DM/Private Chat
-            sound.playServerSound();     // If it's a Server Message (Join/Disconnect)
+            
+            std::stringstream ss(buffer);
             std::cout << buffer << std::endl;
-            std::cout << "Send message to server: ";
-            std::cout.flush();
+
+            // buffer = [Handshake/MessageType] [ClientName] [MessageBody]
+            ss >> command;          // Gets the handshake protocol/type of message came
+            ss >> sender_username;  // Gets the client name where the message came from
+            
+
+            std::cout << command << std::endl;
+            std::cout << sender_username << std::endl;
+            
+            // std::cout << (strcmp(command.c_str(), "[SERVER]")) << '\n';
+
+            if (strcmp(command.c_str(), "[SERVER]") == 0)
+            {
+                std::lock_guard<std::mutex> lock(mtx_client);
+                std::ws(ss);
+                std::getline(ss, message);  // Gets the rest of the message body
+                std::cout << message << '\n';
+                
+                if (strcmp(message.c_str(), "joined the chat") == 0) 
+                {
+                    auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
+                    if (iter == activeClients.end()) activeClients.emplace_back(sender_username);
+                }
+                
+                else if (strcmp(message.c_str(), "left the chat") == 0)
+                {
+                    auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
+                    if (iter != activeClients.end()) activeClients.erase(iter);
+                }
+                //sound.playServerSound();
+            }
+
+            else if (strcmp(command.c_str(), "[DirectMessage]") == 0)
+            {
+                std::lock_guard<std::mutex> lock(mtx_client);
+                ss >> target_username;
+                std::ws(ss);
+                std::getline(ss, message);  // Gets the rest of the message body
+                std::string finalMessage = sender_username + ": " + message;
+                allChatsHistory[sender_username].emplace_back(finalMessage);
+                allChatsHistory[target_username].emplace_back(finalMessage);
+                //sound.playDmSound();
+            }
+
+            else if (strcmp(command.c_str(), "[BroadcastMessage]") == 0)
+            {
+                std::lock_guard<std::mutex> lock(mtx_client);
+                std::ws(ss);
+                std::getline(ss, message);  // Gets the rest of the message body
+                std::string finalMessage = sender_username + ": " + message;
+                allChatsHistory["Broadcast"].emplace_back(finalMessage);
+                //sound.playBroadcastSound();
+            }
         }
-        else if (bytes_received == 0) {
+        else if (bytes_received == 0)
+        {
             std::cout << "Connection closed by server." << std::endl;
+            break;
         }
-        else if (!isRunning) {
-            return;
-        }
-        else {
+        else
+        {
             std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+            break;
         }
     }
 }
@@ -183,14 +250,6 @@ int main(int, char**)
     char messageBuffer[256]{};
     char privateMessageBuffer[256]{};
 
-    // Store the "usernames - chats" as a pair, in a map (first element of the list being "Broadcast" chat)
-    std::map<std::string, std::vector<std::string>> allChatsHistory;
-    std::vector<std::string> activeClients;
-    std::vector<std::string> activePrivateChats;
-
-    // Views the current chat; default is set as "Broadcast"
-    std::string currentChat = "Broadcast";
-
     // Client codes before the main loop start here
     const char* host = "127.0.0.1";
     unsigned int port = 65432;
@@ -288,15 +347,20 @@ int main(int, char**)
             ImGui::SetNextWindowSize(ImVec2(800, 150));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
+            // Login Window
             ImGui::Begin("Login", &show_login_window);
 
+            // Textbox to type username in the window
             ImGui::Text("Please Enter Your Username");
             ImGui::InputText("##Username: ", usernameBuffer, sizeof(usernameBuffer));
 
             ImGui::SameLine();
+
             ImGui::Text("Username");
 
             ImGui::SameLine();
+
+            // Button, starting state as non-pressable when there's an empty string
             ImGui::BeginDisabled(!strcmp(usernameBuffer, ""));
             if (ImGui::Button("Login")) login_button_clicked = !login_button_clicked;
             ImGui::EndDisabled();
@@ -304,7 +368,6 @@ int main(int, char**)
             ImGui::Text(login_status.c_str());
 
             std::string str(usernameBuffer);
-
             if (login_button_clicked)
             {
                 if (str.find(' ') != std::string::npos)
@@ -314,7 +377,8 @@ int main(int, char**)
                 }
                 else
                 {
-                    if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR) {
+                    if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR)
+                    {
                         login_status = "Send failed with error: " + WSAGetLastError() + '\n';
                         closesocket(client_socket);
                         WSACleanup();
@@ -324,9 +388,10 @@ int main(int, char**)
                     char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
                     int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 
-                    if (bytes_received > 0) {
+                    if (bytes_received > 0)
+                    {
                         buffer[bytes_received] = '\0';  // Null-terminate the received data
-                        if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);
+                        if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);  // Look here...
                         else if (strcmp(buffer, "NOT_UNIQUE") == 0) login_status = "Username already taken, try again!";
                     }
                     else if (bytes_received == 0) login_status = "Connection closed by server.";
@@ -340,8 +405,18 @@ int main(int, char**)
         else
         {
             // Username taken, now we can launch the thread
-            std::thread t(Receive, client_socket);
-            t.detach();
+            if (!threadStarted.load(std::memory_order_relaxed))
+            {
+                std::thread t(Receive, client_socket);
+                t.detach();
+                threadStarted.store(true, std::memory_order_relaxed);
+            }
+
+            // Is user still connected?
+            if (!isRunning.load(std::memory_order_relaxed))
+            {
+                done.store(true, std::memory_order_relaxed);
+            }
 
             ImGui::SetNextWindowSize(ImVec2(900, 615));
             ImGui::SetWindowSize(ImVec2(100, 100));
@@ -354,6 +429,11 @@ int main(int, char**)
             
             // List the users here... potentially make a request to server like "/list"
             // When clicked on a user, make sure to open another window for DMs
+
+            for (size_t i = 0; i < activeClients.size(); i++)
+            {
+                ImGui::Selectable(activeClients[i].c_str(), false);
+            }
 
             ImGui::EndChild();
             ImGui::EndChild();
@@ -374,10 +454,26 @@ int main(int, char**)
             ImGui::Text("Message");
             
             ImGui::SameLine();
+
+            // Button, starting state as non-pressable when there's an empty string
             ImGui::BeginDisabled(!strcmp(messageBuffer, ""));
             if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
             ImGui::EndDisabled();
-            if (send_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
+
+            if (send_button_clicked)
+            {
+                // ImGui::Text("This is only for debugging... send logic will go here...");
+                // Send the message to the server
+                if (send(client_socket, messageBuffer, sizeof(messageBuffer), 0) == SOCKET_ERROR)
+                {
+                    std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
+                    return 1;
+                    closesocket(client_socket);
+                    WSACleanup();
+                }
+                memset(messageBuffer, '\0', sizeof(messageBuffer));  // Clear the message buffer after everything
+                send_button_clicked = false;
+            }
 
             ImGui::SetNextWindowSize(ImVec2(1000, 400));
             ImGui::SetWindowSize(ImVec2(100, 100));
@@ -397,10 +493,30 @@ int main(int, char**)
             ImGui::Text("Private Message");
 
             ImGui::SameLine();
+
+            // Button, starting state as non-pressable when there's an empty string
             ImGui::BeginDisabled(!strcmp(privateMessageBuffer, ""));
             if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
             ImGui::EndDisabled();
-            if (send_private_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
+
+            if (send_private_button_clicked)
+            {
+                // ImGui::Text("This is only for debugging... send logic will go here...");
+                // Construct the message buffer to a string that the server can understand
+                std::string message(privateMessageBuffer);
+                std::string finalMessage = "/dm GetClienName " + message;
+
+                if (send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0) == SOCKET_ERROR)
+                {
+                    std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
+                    return 1;
+                    closesocket(client_socket);
+                    WSACleanup();
+                }
+                // Clear the message buffer after everything and set button state to false
+                memset(privateMessageBuffer, '\0', sizeof(privateMessageBuffer));
+                send_private_button_clicked = false;
+            }
             ImGui::End();
             // Direct Message Window Prototype End
 
