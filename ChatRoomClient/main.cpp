@@ -55,8 +55,10 @@ static void Receive(SOCKET client_socket) {
 
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0'; // Null-terminate the received data
+            // Prototype purposes for now
             sound.playBroadcastSound();  // If it's a Broadcast
             sound.playDmSound();         // If it's a DM/Private Chat
+            sound.playServerSound();     // If it's a Server Message (Join/Disconnect)
             std::cout << buffer << std::endl;
             std::cout << "Send message to server: ";
             std::cout.flush();

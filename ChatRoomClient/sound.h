@@ -12,6 +12,7 @@ private:
 	FMOD::Channel* channel = NULL;
 	FMOD::Sound* broadcastSound = NULL;
 	FMOD::Sound* dmSound = NULL;
+	FMOD::Sound* serverSound = NULL;
 	FMOD::System* system = NULL;
 public:
 	Sound() {
@@ -36,5 +37,11 @@ public:
 		system->createSound("Resources/dm.mp3", FMOD_DEFAULT, NULL, &dmSound);
 		system->playSound(dmSound, NULL, false, &channel);
 		dmSound->release();
+	}
+
+	void playServerSound() {
+		system->createSound("Resources/server.mp3", FMOD_DEFAULT, NULL, &serverSound);
+		system->playSound(serverSound, NULL, false, &channel);
+		serverSound->release();
 	}
 };
