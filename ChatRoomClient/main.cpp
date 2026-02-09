@@ -47,6 +47,7 @@ std::atomic<bool> selectedUsername = false;         // Storing as atomic to prev
 
 // Receive Loop
 static void Receive(SOCKET client_socket) {
+    Sound sound;
     while (true) {
         // Receive the reversed sentence from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
@@ -54,7 +55,8 @@ static void Receive(SOCKET client_socket) {
 
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0'; // Null-terminate the received data
-            std::cout << '\r' << "                        " << '\r';
+            sound.playBroadcastSound();  // If it's a Broadcast
+            sound.playDmSound();         // If it's a DM/Private Chat
             std::cout << buffer << std::endl;
             std::cout << "Send message to server: ";
             std::cout.flush();
@@ -95,10 +97,6 @@ static void Receive(SOCKET client_socket) {
 //        // std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
 //    }
 //    std::cout << "Closing the connection!" << std::endl;
-//
-//    // Step 7: Cleanup
-//    closesocket(client_socket);
-//    WSACleanup();
 //}
 // --- CLIENT CODES FOR CHAT ROOM END ---
 
@@ -162,7 +160,7 @@ int main(int, char**)
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
     //IM_ASSERT(font != nullptr);
 
-    // Chat Room Client States
+    // States
     std::atomic<bool> done = false;
     std::atomic<bool> isNotConnected = true;
 
@@ -178,23 +176,25 @@ int main(int, char**)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    // Username and Message Buffers (as a char array/string)
+    // Username and Message Buffers
     char usernameBuffer[32]{};
     char messageBuffer[256]{};
     char privateMessageBuffer[256]{};
 
-    // Store the "usernames - chats" as a pair, in a map (first element being Broadcast chat)
+    // Store the "usernames - chats" as a pair, in a map (first element of the list being "Broadcast" chat)
     std::map<std::string, std::vector<std::string>> allChatsHistory;
+    std::vector<std::string> activeClients;
+    std::vector<std::string> activePrivateChats;
 
     // Views the current chat; default is set as "Broadcast"
     std::string currentChat = "Broadcast";
 
-    // CLIENT.CPP CODES BEFORE THE MAIN LOOP
+    // Client codes before the main loop start here
     const char* host = "127.0.0.1";
     unsigned int port = 65432;
     std::string message = "Hello, server!";
 
-    // Step 1: Initialise WinSock Library
+    // Initialise WinSock Library
     // - Version Requested as a Word: 2.2
     // - Pointer to a WSADATA structure
     WSADATA wsaData;
@@ -203,7 +203,7 @@ int main(int, char**)
         return 1;
     }
 
-    // Step 2: Create a socket
+    // Create a socket
     // - Address Family: IPv4 (AF_INET)
     // - Socket Type: TCP (SOCK_STREAM)
     // - Protocol: TCP (IPPROTO_TCP)
@@ -214,7 +214,7 @@ int main(int, char**)
         return 1;
     }
 
-    // Step 3: Convert an IP address from string to binary
+    // Convert an IP address from string to binary
     // - Address Family: IPv4 (AF_INET)
     // - Source IP String: host ("127.0.0.1")
     // - Destination Pointer: Sturcture holding binary representation
@@ -228,7 +228,7 @@ int main(int, char**)
         return 1;
     }
 
-    // Step 4: Establishing the connection
+    // Establishing the connection
     // - s: The socket descriptor
     // - name: Pointer to a sockaddr structure (containing the server's address and port)
     // - namelen: Size of the sockaddr structure
@@ -239,7 +239,7 @@ int main(int, char**)
         return 1;
     }
     std::cout << "Connected to the server!" << std::endl;
-    // CLIENT.CPP CODES BEFORE THE MAIN LOOP END
+    // Client codes before the main loop end here
 
     // Main loop
     while (!done.load(std::memory_order_relaxed))  // !done
@@ -254,7 +254,7 @@ int main(int, char**)
             if (msg.message == WM_QUIT)
                 done.store(true, std::memory_order_relaxed);  // done = true;
         }
-        if (done)
+        if (done.load(std::memory_order_relaxed))  // done
             break;
 
         // Handle window being minimized or screen locked
@@ -279,14 +279,14 @@ int main(int, char**)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        // --- DearImGui Codes for Chat Room Start From Here... ---
+        // DearImGui Codes for ChatRoom Start From Here
         // User has not logged in to the server
         if (isNotConnected.load(std::memory_order_relaxed))
         {
             ImGui::SetNextWindowSize(ImVec2(800, 150));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
-            ImGui::Begin("Login", &show_login_window, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+            ImGui::Begin("Login", &show_login_window);
 
             ImGui::Text("Please Enter Your Username");
             ImGui::InputText("##Username: ", usernameBuffer, sizeof(usernameBuffer));
@@ -295,29 +295,42 @@ int main(int, char**)
             ImGui::Text("Username");
 
             ImGui::SameLine();
+            ImGui::BeginDisabled(!strcmp(usernameBuffer, ""));
             if (ImGui::Button("Login")) login_button_clicked = !login_button_clicked;
+            ImGui::EndDisabled();
 
             ImGui::Text(login_status.c_str());
+
+            std::string str(usernameBuffer);
+
             if (login_button_clicked)
             {
-                if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR) {
-                    login_status = "Send failed with error: " + WSAGetLastError() + '\n';
-                    closesocket(client_socket);
-                    WSACleanup();
-                    return 1;
+                if (str.find(' ') != std::string::npos)
+                {
+                    login_status = "Username cannot contain white spaces!";
+                    login_button_clicked = false;
                 }
-                // Receive the "UNIQUE" or "NOT_UNIQUE" from the server
-                char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
-                int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
+                else
+                {
+                    if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR) {
+                        login_status = "Send failed with error: " + WSAGetLastError() + '\n';
+                        closesocket(client_socket);
+                        WSACleanup();
+                        return 1;
+                    }
+                    // Receive the "UNIQUE" or "NOT_UNIQUE" from the server
+                    char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
+                    int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 
-                if (bytes_received > 0) {
-                    buffer[bytes_received] = '\0';  // Null-terminate the received data
-                    if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);
-                    else if (strcmp(buffer, "NOT_UNIQUE") == 0) login_status = "Username already taken, try again!";
+                    if (bytes_received > 0) {
+                        buffer[bytes_received] = '\0';  // Null-terminate the received data
+                        if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);
+                        else if (strcmp(buffer, "NOT_UNIQUE") == 0) login_status = "Username already taken, try again!";
+                    }
+                    else if (bytes_received == 0) login_status = "Connection closed by server.";
+                    else login_status = "Receive failed with error: " + WSAGetLastError();
+                    login_button_clicked = !login_button_clicked;
                 }
-                else if (bytes_received == 0) login_status = "Connection closed by server.";
-                else login_status = "Receive failed with error: " + WSAGetLastError();
-                login_button_clicked = !login_button_clicked;
             }
             ImGui::End();
         }
@@ -331,7 +344,7 @@ int main(int, char**)
             ImGui::SetNextWindowSize(ImVec2(900, 615));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
-            ImGui::Begin("Chat Client", &show_chat_window, ImGuiWindowFlags_NoResize);
+            ImGui::Begin("Chat Client", &show_chat_window);
             ImGui::BeginChild("Users", ImVec2(225, 500), true);
             ImGui::Text("Users:");
             ImGui::Separator();
@@ -348,7 +361,7 @@ int main(int, char**)
             ImGui::BeginChild("Messages", ImVec2(635, 500), true);
             ImGui::SetScrollHereY(1.f);
 
-            // List the broadcasting message here... implement the broadcast logGUI prototyping for Client (no connection logic yet, just visuals)ic here
+            // List the broadcasting message here...
             // Nice to have: Give each user an unique color to distinguish each other
 
             ImGui::EndChild();
@@ -359,17 +372,21 @@ int main(int, char**)
             ImGui::Text("Message");
             
             ImGui::SameLine();
+            ImGui::BeginDisabled(!strcmp(messageBuffer, ""));
             if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
+            ImGui::EndDisabled();
             if (send_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
 
-            // Direct Message Window Prototype
             ImGui::SetNextWindowSize(ImVec2(1000, 400));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
-            ImGui::Begin("Private Chat with [Someone]", &show_private_window, ImGuiWindowFlags_NoResize);
+            ImGui::Begin("Private Chat with [Someone]", &show_private_window);
             
             ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
             ImGui::SetScrollHereY(1.f);
+
+            // List the direct/private messages here...
+
             ImGui::EndChild();
 
             ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer));
@@ -378,14 +395,16 @@ int main(int, char**)
             ImGui::Text("Private Message");
 
             ImGui::SameLine();
+            ImGui::BeginDisabled(!strcmp(privateMessageBuffer, ""));
             if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
+            ImGui::EndDisabled();
             if (send_private_button_clicked) ImGui::Text("This is only for debugging... send logic will go here...");
             ImGui::End();
             // Direct Message Window Prototype End
 
             ImGui::End();
         }
-        // --- DearImGui Codes for Chat Room End Here... ---
+        // DearImGui Codes for ChatRoom End Here
 
         // Rendering
         ImGui::Render();
@@ -408,6 +427,9 @@ int main(int, char**)
     CleanupDeviceD3D();
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+    closesocket(client_socket);
+    WSACleanup();
 
     return 0;
 }
