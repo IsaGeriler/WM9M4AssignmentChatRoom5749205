@@ -59,6 +59,10 @@ static std::vector<std::string> activeClients;
 std::string currentChat = "Broadcast";
 std::string current_client = "";  // Client of the launched instance
 
+// Last Message Counts for Triggering Auto-Scrolling
+unsigned int lastMessageCount = 0;
+std::map<std::string, unsigned int> lastPrivateMessageCount;
+
 // Receive Loop
 static void Receive(SOCKET client_socket)
 {
@@ -463,17 +467,18 @@ int main(int, char**)
 
                 ImGui::SameLine();
 
-                ImGui::BeginChild("Messages", ImVec2(635, 500), true);
-                ImGui::SetScrollHereY(1.f);
-
-                // List the broadcasting message here...
-                // Nice to have: Give each user an unique color to distinguish each other
+                ImGui::BeginChild("Messages", ImVec2(635, 500), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
                 for (size_t i = 0; i < allChatsHistory["Broadcast"].size(); i++)
                 {
                     ImGui::TextWrapped("%s", allChatsHistory["Broadcast"][i].c_str());
                 }
 
+                if (allChatsHistory["Broadcast"].size() > lastMessageCount)
+                {
+                    ImGui::SetScrollHereY(1.f);
+                    lastMessageCount = allChatsHistory["Broadcast"].size();
+                }
                 ImGui::EndChild();
 
                 bool broadcast_sent = ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
@@ -512,15 +517,18 @@ int main(int, char**)
                     std::string window_name = "Private Chat with " + client;
                     if (ImGui::Begin(window_name.c_str()))
                     {
-                        ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
-                        ImGui::SetScrollHereY(1.f);
+                        ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
-                        // List the direct/private messages here... 
                         for (size_t i = 0; i < allChatsHistory[client].size(); i++)
                         {
                             ImGui::TextWrapped("%s", allChatsHistory[client][i].c_str());
                         }
 
+                        if (allChatsHistory[client].size() > lastPrivateMessageCount[client])
+                        {
+                            ImGui::SetScrollHereY(1.f);
+                            lastPrivateMessageCount[client] = allChatsHistory[client].size();
+                        }
                         ImGui::EndChild();
 
                         bool direct_sent = ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
