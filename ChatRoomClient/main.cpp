@@ -118,6 +118,11 @@ static void Receive(SOCKET client_socket)
                         if (iter != activeClients.end()) activeClients.erase(iter);
                         allChatsHistory["Broadcast"].emplace_back(buffer);
                     }
+
+                    else if (strcmp(message.c_str(), "is not connected!") == 0)
+                    {
+                        allChatsHistory[sender_username].emplace_back(buffer);
+                    }
                     //sound.playServerSound();
                 }
                 else if (strcmp(command.c_str(), "[DirectMessage]") == 0)

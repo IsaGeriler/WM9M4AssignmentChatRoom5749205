@@ -120,7 +120,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 				else  // Target client is not connected
 				{
 					std::cout << "User not found..." << std::endl;
-					std::string errorMessage = "[SERVER] User \"" + user + "\" is not connected!";
+					std::string errorMessage = "[SERVER] " + user + " is not connected!";
 					send(client_socket, errorMessage.c_str(), static_cast<int>(errorMessage.size()), 0);
 					std::cout << "Error Message sent to client " << client_name << "." << std::endl;
 				}
