@@ -1,6 +1,17 @@
 # WM9M4AssignmentChatRoom5749205
-## Current State of the Chat Room (Console-App; Networking Logic Showcase)
-<img width="1919" height="1128" alt="Screenshot 2026-02-07 163359" src="https://github.com/user-attachments/assets/dd98a8d0-f6d2-4b99-9bf9-57266a3eb0a3" />
+## Current State of the Chat Room
+### Login Screen
+<img width="821" height="180" alt="Screenshot 2026-02-10 151235" src="https://github.com/user-attachments/assets/12f2f284-1c2d-4571-afde-89f478caa469"/>
+<img width="1919" height="1127" alt="Screenshot 2026-02-10 152942" src="https://github.com/user-attachments/assets/761f3def-b5a8-4e12-b74f-1419702ff898" />
 
-## Current State of the Chat Room (GUI Showcase; Have to Integrate Networking Logic)
-<img width="1290" height="656" alt="Screenshot 2026-02-08 162948" src="https://github.com/user-attachments/assets/8ed5f090-a9b8-4b53-8ef8-d367e3ffb545" />
+*Note: Username cannot be empty string (to prevent attacks), or cannot contain any whitespaces*
+
+### Broadcasting Between Clients
+<img width="918" height="637" alt="Screenshot 2026-02-10 151354" src="https://github.com/user-attachments/assets/4bfcb0ef-8098-4283-a771-e298aebd782c"/>
+
+### Direct Message Between Two Clients
+<img width="1791" height="831" alt="Screenshot 2026-02-10 151505" src="https://github.com/user-attachments/assets/054128ca-1de0-4e80-9f02-d1c103fc731a"/>
+<img width="1918" height="649" alt="Screenshot 2026-02-10 153602" src="https://github.com/user-attachments/assets/b1c122a3-9d7f-4021-bc2f-3323fe64ab22" />
+
+### Server Logs for the Test Tun
+<img width="1734" height="927" alt="Screenshot 2026-02-10 153718" src="https://github.com/user-attachments/assets/a25d4201-617f-4a00-91b6-77aa28c7d1d5" />
