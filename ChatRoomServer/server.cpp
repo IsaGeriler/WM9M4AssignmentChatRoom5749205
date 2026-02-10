@@ -38,6 +38,13 @@ static void communicateClient(SOCKET client_socket, int connection)
 			client_name = buffer;
 			std::cout << "Received Name: " << buffer << std::endl;
 
+			if (client_name == "/exit")
+			{
+				std::cout << "Closing the connection to client" << connection << "!" << std::endl;
+				closesocket(client_socket);
+				return;
+			}
+
 			auto iter = active_clients.find(client_name);
 			if (iter == active_clients.end())
 			{

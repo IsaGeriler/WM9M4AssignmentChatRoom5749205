@@ -227,10 +227,7 @@ int main(int, char**)
 
     std::string login_status = "";
 
-    bool show_login_window = true;
     bool show_chat_window = true;
-    bool show_private_window = true;
-
     bool login_button_clicked = false;
     bool send_button_clicked = false;
     bool send_private_button_clicked = false;
@@ -312,7 +309,16 @@ int main(int, char**)
                 done.store(true, std::memory_order_relaxed);  // done = true;
         }
         if (done.load(std::memory_order_relaxed))  // done
-            break;
+        {
+            // User pressed 'X' at the chat client; disconnect them!
+            if (send(client_socket, "/exit", sizeof("/exit"), 0) == SOCKET_ERROR)
+            {
+                std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
+                return 1;
+                closesocket(client_socket);
+                WSACleanup();
+            }
+        }
 
         // Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
@@ -344,7 +350,7 @@ int main(int, char**)
             ImGui::SetWindowSize(ImVec2(100, 100));
 
             // Login Window
-            ImGui::Begin("Login", &show_login_window);
+            ImGui::Begin("Login");
 
             // Textbox to type username in the window
             ImGui::Text("Please Enter Your Username");
@@ -493,7 +499,7 @@ int main(int, char**)
                 for (auto const& client : activeChats)
                 {
                     std::string window_name = "Private Chat with " + client;
-                    if (ImGui::Begin(window_name.c_str(), &show_private_window))
+                    if (ImGui::Begin(window_name.c_str()))
                     {
                         ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
                         ImGui::SetScrollHereY(1.f);
