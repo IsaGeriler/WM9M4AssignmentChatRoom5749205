@@ -377,6 +377,11 @@ int main(int, char**)
                     login_status = "Username cannot contain white spaces!";
                     login_button_clicked = false;
                 }
+                else if (strcmp(usernameBuffer, "/exit") == 0)
+                {
+                    login_status = "Very clever, I'll give you that... Please enter a valid username!";
+                    login_button_clicked = false;
+                }
                 else
                 {
                     if (send(client_socket, usernameBuffer, sizeof(usernameBuffer), 0) == SOCKET_ERROR)

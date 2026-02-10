@@ -38,7 +38,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 			client_name = buffer;
 			std::cout << "Received Name: " << buffer << std::endl;
 
-			if (client_name == "/exit")
+			if (strcmp(client_name.c_str(), "/exit") == 0)
 			{
 				std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 				closesocket(client_socket);
