@@ -421,123 +421,137 @@ int main(int, char**)
             ImGui::SetNextWindowSize(ImVec2(900, 615));
             ImGui::SetWindowSize(ImVec2(100, 100));
 
-            ImGui::Begin("Chat Client", &show_chat_window);
-            ImGui::BeginChild("Users", ImVec2(225, 500), true);
-            ImGui::Text("Users:");
-            ImGui::Separator();
-            ImGui::BeginChild("UserList", ImVec2(0, 0), false);
-            
-            // List the users here... potentially make a request to server like "/list"
-            // When clicked on a user, make sure to open another window for DMs
-
-            mtx_client_list.lock();
-            for (size_t i = 0; i < activeClients.size(); i++)
+            if (show_chat_window)
             {
-                // std::cout << activeClients[i].c_str() << '\n';
-                if (strcmp(current_client.c_str(), activeClients[i].c_str()) == 0) continue;
-                if (ImGui::Selectable(activeClients[i].c_str())) activeChats.insert(activeClients[i].c_str());
+                ImGui::Begin("Chat Client", &show_chat_window);
+                ImGui::BeginChild("Users", ImVec2(225, 500), true);
+                ImGui::Text("Users:");
+                ImGui::Separator();
+                ImGui::BeginChild("UserList", ImVec2(0, 0), false);
+
+                // List the users here... potentially make a request to server like "/list"
+                // When clicked on a user, make sure to open another window for DMs
+
+                mtx_client_list.lock();
+                for (size_t i = 0; i < activeClients.size(); i++)
+                {
+                    // std::cout << activeClients[i].c_str() << '\n';
+                    if (strcmp(current_client.c_str(), activeClients[i].c_str()) == 0) continue;
+                    if (ImGui::Selectable(activeClients[i].c_str())) activeChats.insert(activeClients[i].c_str());
+                }
+                mtx_client_list.unlock();
+
+                ImGui::EndChild();
+                ImGui::EndChild();
+
+                ImGui::SameLine();
+
+                ImGui::BeginChild("Messages", ImVec2(635, 500), true);
+                ImGui::SetScrollHereY(1.f);
+
+                // List the broadcasting message here...
+                // Nice to have: Give each user an unique color to distinguish each other
+
+                for (size_t i = 0; i < allChatsHistory["Broadcast"].size(); i++)
+                {
+                    ImGui::TextWrapped("%s", allChatsHistory["Broadcast"][i].c_str());
+                }
+
+                ImGui::EndChild();
+
+                bool broadcast_sent = ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+
+                ImGui::SameLine();
+                ImGui::Text("Message");
+
+                ImGui::SameLine();
+
+                // Button, starting state as non-pressable when there's an empty string
+                ImGui::BeginDisabled(!strcmp(messageBuffer, ""));
+                if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
+                ImGui::EndDisabled();
+
+                if (send_button_clicked || broadcast_sent)
+                {
+                    // ImGui::Text("This is only for debugging... send logic will go here...");
+                    // Send the message to the server
+                    if (send(client_socket, messageBuffer, sizeof(messageBuffer), 0) == SOCKET_ERROR)
+                    {
+                        std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
+                        return 1;
+                        closesocket(client_socket);
+                        WSACleanup();
+                    }
+                    memset(messageBuffer, '\0', sizeof(messageBuffer));  // Clear the message buffer after everything
+                    send_button_clicked = false;
+                }
+
+                ImGui::SetNextWindowSize(ImVec2(1000, 400));
+                ImGui::SetWindowSize(ImVec2(100, 100));
+
+                std::lock_guard<std::mutex> lock(mtx_client_list);
+                for (auto const& client : activeChats)
+                {
+                    std::string window_name = "Private Chat with " + client;
+                    if (ImGui::Begin(window_name.c_str(), &show_private_window))
+                    {
+                        ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
+                        ImGui::SetScrollHereY(1.f);
+
+                        // List the direct/private messages here... 
+                        for (size_t i = 0; i < allChatsHistory[client].size(); i++)
+                        {
+                            ImGui::TextWrapped("%s", allChatsHistory[client][i].c_str());
+                        }
+
+                        ImGui::EndChild();
+
+                        bool direct_sent = ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+
+                        ImGui::SameLine();
+                        ImGui::Text("Private Message");
+
+                        ImGui::SameLine();
+
+                        // Button, starting state as non-pressable when there's an empty string
+                        ImGui::BeginDisabled(!strcmp(privateMessageBuffer, ""));
+                        if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
+                        ImGui::EndDisabled();
+
+                        if (send_private_button_clicked || direct_sent)
+                        {
+                            // ImGui::Text("This is only for debugging... send logic will go here...");
+                            // Construct the message buffer to a string that the server can understand
+                            std::string message(privateMessageBuffer);
+                            std::string finalMessage = "/dm " + client + " " + message;
+
+                            if (send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0) == SOCKET_ERROR)
+                            {
+                                std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
+                                return 1;
+                                closesocket(client_socket);
+                                WSACleanup();
+                            }
+                            // Clear the message buffer after everything and set button state to false
+                            memset(privateMessageBuffer, '\0', sizeof(privateMessageBuffer));
+                            send_private_button_clicked = false;
+                        }
+                    }
+                    ImGui::End();
+                }
+                ImGui::End();
             }
-            mtx_client_list.unlock();
-
-            ImGui::EndChild();
-            ImGui::EndChild();
-
-            ImGui::SameLine();
-            
-            ImGui::BeginChild("Messages", ImVec2(635, 500), true);
-            ImGui::SetScrollHereY(1.f);
-
-            // List the broadcasting message here...
-            // Nice to have: Give each user an unique color to distinguish each other
-
-            for (size_t i = 0; i < allChatsHistory["Broadcast"].size(); i++)
+            else
             {
-                ImGui::TextWrapped("%s", allChatsHistory["Broadcast"][i].c_str());
-            }
-
-            ImGui::EndChild();
-            
-            bool broadcast_sent = ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
-            
-            ImGui::SameLine();
-            ImGui::Text("Message");
-            
-            ImGui::SameLine();
-
-            // Button, starting state as non-pressable when there's an empty string
-            ImGui::BeginDisabled(!strcmp(messageBuffer, ""));
-            if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
-            ImGui::EndDisabled();
-
-            if (send_button_clicked || broadcast_sent)
-            {
-                // ImGui::Text("This is only for debugging... send logic will go here...");
-                // Send the message to the server
-                if (send(client_socket, messageBuffer, sizeof(messageBuffer), 0) == SOCKET_ERROR)
+                // User pressed 'X' at the chat client; disconnect them!
+                if (send(client_socket, "/exit", sizeof("/exit"), 0) == SOCKET_ERROR)
                 {
                     std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
                     return 1;
                     closesocket(client_socket);
                     WSACleanup();
                 }
-                memset(messageBuffer, '\0', sizeof(messageBuffer));  // Clear the message buffer after everything
-                send_button_clicked = false;
             }
-
-            ImGui::SetNextWindowSize(ImVec2(1000, 400));
-            ImGui::SetWindowSize(ImVec2(100, 100));
-
-            std::lock_guard<std::mutex> lock(mtx_client_list);
-            for (auto const& client : activeChats)
-            {
-                std::string window_name = "Private Chat with " + client;
-                if (ImGui::Begin(window_name.c_str(), &show_private_window))
-                {
-                    ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
-                    ImGui::SetScrollHereY(1.f);
-
-                    // List the direct/private messages here... 
-                    for (size_t i = 0; i < allChatsHistory[client].size(); i++)
-                    {
-                        ImGui::TextWrapped("%s", allChatsHistory[client][i].c_str());
-                    }
-
-                    ImGui::EndChild();
-
-                    bool direct_sent = ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
-
-                    ImGui::SameLine();
-                    ImGui::Text("Private Message");
-
-                    ImGui::SameLine();
-
-                    // Button, starting state as non-pressable when there's an empty string
-                    ImGui::BeginDisabled(!strcmp(privateMessageBuffer, ""));
-                    if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
-                    ImGui::EndDisabled();
-
-                    if (send_private_button_clicked || direct_sent)
-                    {
-                        // ImGui::Text("This is only for debugging... send logic will go here...");
-                        // Construct the message buffer to a string that the server can understand
-                        std::string message(privateMessageBuffer);
-                        std::string finalMessage = "/dm " + client + " " + message;
-
-                        if (send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0) == SOCKET_ERROR)
-                        {
-                            std::cerr << "Send failed with error: " + WSAGetLastError() + '\n';
-                            return 1;
-                            closesocket(client_socket);
-                            WSACleanup();
-                        }
-                        // Clear the message buffer after everything and set button state to false
-                        memset(privateMessageBuffer, '\0', sizeof(privateMessageBuffer));
-                        send_private_button_clicked = false;
-                    }
-                }
-                ImGui::End();
-            }
-            ImGui::End();
         }
         // DearImGui Codes for ChatRoom End Here
 
