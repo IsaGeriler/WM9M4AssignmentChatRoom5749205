@@ -55,11 +55,12 @@ std::vector<std::string> activeClients;
 
 // Views the current chat; default is set as "Broadcast"
 std::string currentChat = "Broadcast";
+std::string current_client = "";  // Client of the launched instance
 
 // Receive Loop
 static void Receive(SOCKET client_socket) {
     Sound sound;
-    while (true/*isRunning.load(std::memory_order_relaxed)*/) {
+    while (isRunning.load(std::memory_order_relaxed)) {
         // Receive the response from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
         int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
@@ -76,14 +77,14 @@ static void Receive(SOCKET client_socket) {
             std::stringstream ss(buffer);
             std::cout << buffer << std::endl;
 
+            if (buffer == "/exit") isRunning.store(false, std::memory_order_relaxed);
+
             // buffer = [Handshake/MessageType] [ClientName] [MessageBody]
             ss >> command;          // Gets the handshake protocol/type of message came
             ss >> sender_username;  // Gets the client name where the message came from
-            
 
             std::cout << command << std::endl;
             std::cout << sender_username << std::endl;
-            
             // std::cout << (strcmp(command.c_str(), "[SERVER]")) << '\n';
 
             if (strcmp(command.c_str(), "[SERVER]") == 0)
@@ -366,8 +367,8 @@ int main(int, char**)
             ImGui::EndDisabled();
 
             ImGui::Text(login_status.c_str());
-
             std::string str(usernameBuffer);
+
             if (login_button_clicked)
             {
                 if (str.find(' ') != std::string::npos)
@@ -391,7 +392,11 @@ int main(int, char**)
                     if (bytes_received > 0)
                     {
                         buffer[bytes_received] = '\0';  // Null-terminate the received data
-                        if (strcmp(buffer, "UNIQUE") == 0) isNotConnected.store(false, std::memory_order_relaxed);  // Look here...
+                        if (strcmp(buffer, "UNIQUE") == 0)
+                        {
+                            current_client = usernameBuffer;
+                            isNotConnected.store(false, std::memory_order_relaxed);  // Look here...
+                        }
                         else if (strcmp(buffer, "NOT_UNIQUE") == 0) login_status = "Username already taken, try again!";
                     }
                     else if (bytes_received == 0) login_status = "Connection closed by server.";
@@ -430,9 +435,11 @@ int main(int, char**)
             // List the users here... potentially make a request to server like "/list"
             // When clicked on a user, make sure to open another window for DMs
 
+            std::lock_guard<std::mutex> lock(mtx_client);
             for (size_t i = 0; i < activeClients.size(); i++)
             {
-                ImGui::Selectable(activeClients[i].c_str(), false);
+                if (strcmp(current_client.c_str(), activeClients[i].c_str()) == 0) continue;
+                if (ImGui::Selectable(activeClients[i].c_str())) activeChats.emplace_back(activeClients[i].c_str());
             }
 
             ImGui::EndChild();

@@ -37,9 +37,9 @@ static void communicateClient(SOCKET client_socket, int connection) {
 			client_name = buffer;
 			std::cout << "Received Name: " << buffer << std::endl;
 
-			std::lock_guard<std::mutex> lock(mtx);
 			auto iter = active_clients.find(client_name);
 			if (iter == active_clients.end()) {
+				std::lock_guard<std::mutex> lock(mtx);
 				active_clients.emplace(client_name, client_socket);
 				std::cout << client_name << " joined the chat..." << std::endl;
 				std::string finalMessage = "UNIQUE";
@@ -54,6 +54,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	}
 
 	// Receive who joined before this client
+	mtx.lock();
 	for (auto const& client : active_clients) {
 		// if (client.second != client_socket) {
 			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
@@ -64,9 +65,11 @@ static void communicateClient(SOCKET client_socket, int connection) {
 		std::string finalMessage = "[SERVER] " + client.first + " joined the chat";
 		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
+	mtx.unlock();
 	std::cout << "Previous User Join Message sent." << std::endl;
 
 	// Send user connected message to every client
+	mtx.lock();
 	for (auto const& client : active_clients) {
 		// if (client.second != client_socket) {
 			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
@@ -77,6 +80,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 		std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
+	mtx.unlock();
 	std::cout << "Current User Join Message sent." << std::endl;
 
 	// Connection Loop
@@ -137,7 +141,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
-	std::lock_guard<std::mutex> lock(mtx);
+	mtx.lock();
 	active_clients.erase(client_name);
 
 	// Send the disconnect message to every client
@@ -147,7 +151,7 @@ static void communicateClient(SOCKET client_socket, int connection) {
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 		std::cout << "Leave Message sent." << std::endl;
 	}
-
+	mtx.unlock();
 	closesocket(client_socket);
 }
 
