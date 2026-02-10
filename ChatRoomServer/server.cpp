@@ -120,12 +120,9 @@ static void communicateClient(SOCKET client_socket, int connection)
 				std::lock_guard<std::mutex> lock(mtx_server);
 				for (auto const& client : active_clients)
 				{
-					if (client.second != client_socket)
-					{
-						std::string finalMessage = "[BroadcastMessage] " + client_name + " " + response;
-						send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-						std::cout << "Broadcast Message sent from client " << client_name << "." << std::endl;
-					}
+					std::string finalMessage = "[BroadcastMessage] " + client_name + " " + response;
+					send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+					std::cout << "Broadcast Message sent from client " << client_name << "." << std::endl;
 				}
 			}
 		}
