@@ -17,36 +17,39 @@ constexpr unsigned int BUFFER_SIZE = 1024;
 std::map<std::string, SOCKET> active_clients;
 
 // Mutex for thread safety
-// std::lock_guard<std::mutex> lock(mtx) for auto locking
-// ...or do manual mtx.lock() & mtx.unlock()
-std::mutex mtx;
+std::mutex mtx_server;
 
 // Store isRunning as atomic to prevent race conditions
 std::atomic<bool> isRunning = true;
 
-static void communicateClient(SOCKET client_socket, int connection) {
+static void communicateClient(SOCKET client_socket, int connection)
+{
 	// Username Loop
 	std::string client_name;
-	while (true) {
+	while (isRunning)
+	{
 		// Check user join or not...
 		char buffer[BUFFER_SIZE] = { 0 };
 		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
 
-		if (receivedBytes > 0) {
+		if (receivedBytes > 0)
+		{
 			buffer[receivedBytes] = '\0';
 			client_name = buffer;
 			std::cout << "Received Name: " << buffer << std::endl;
 
 			auto iter = active_clients.find(client_name);
-			if (iter == active_clients.end()) {
-				std::lock_guard<std::mutex> lock(mtx);
+			if (iter == active_clients.end())
+			{
+				std::lock_guard<std::mutex> lock(mtx_server);
 				active_clients.emplace(client_name, client_socket);
 				std::cout << client_name << " joined the chat..." << std::endl;
 				std::string finalMessage = "UNIQUE";
 				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-				break;
+				isRunning = false;
 			}
-			else {
+			else
+			{
 				std::string finalMessage = "NOT_UNIQUE";
 				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 			}
@@ -54,8 +57,9 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	}
 
 	// Receive who joined before this client
-	mtx.lock();
-	for (auto const& client : active_clients) {
+	mtx_server.lock();
+	for (auto const& client : active_clients)
+	{
 		// if (client.second != client_socket) {
 			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
 			// std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
@@ -65,30 +69,34 @@ static void communicateClient(SOCKET client_socket, int connection) {
 		std::string finalMessage = "[SERVER] " + client.first + " joined the chat";
 		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
-	mtx.unlock();
+	mtx_server.unlock();
 	std::cout << "Previous User Join Message sent." << std::endl;
 
 	// Send user connected message to every client
-	mtx.lock();
-	for (auto const& client : active_clients) {
-		// if (client.second != client_socket) {
-			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
-			// std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
-			// send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-			// std::cout << "Join Message sent." << std::endl;
+	mtx_server.lock();
+	for (auto const& client : active_clients)
+	{
+		// if (client.second != client_socket)
+		// {
+		// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
+		// std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
+		// send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+		// std::cout << "Join Message sent." << std::endl;
 		// }
 		std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
-	mtx.unlock();
+	mtx_server.unlock();
 	std::cout << "Current User Join Message sent." << std::endl;
 
 	// Connection Loop
-	while (true) { //isRunning
+	while (true)   //isRunning
+	{
 		// Step 6: Communicate with the client
 		char buffer[BUFFER_SIZE] = { 0 };
 		int receivedBytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-		if (receivedBytes > 0) {
+		if (receivedBytes > 0)
+		{
 			buffer[receivedBytes] = '\0';
 			std::cout << "Received: " << buffer << std::endl;
 			std::string response(buffer);
@@ -102,7 +110,8 @@ static void communicateClient(SOCKET client_socket, int connection) {
 			std::string command;
 			ss >> command;
 			std::cout << command << std::endl;
-			if (command == "/dm") {
+			if (command == "/dm")
+			{
 				std::string user;
 				ss >> user >> std::ws;
 				std::cout << user << std::endl;
@@ -111,25 +120,30 @@ static void communicateClient(SOCKET client_socket, int connection) {
 				std::getline(ss, message);
 				std::cout << message << std::endl;
 				
-				std::lock_guard<std::mutex> lock(mtx);
+				std::lock_guard<std::mutex> lock(mtx_server);
 				auto iter = active_clients.find(user);
-				if (iter != active_clients.end()) {  // Target client is active
+				if (iter != active_clients.end())  // Target client is active
+				{
 					SOCKET target = iter->second;
 					std::string finalMessage = "[DirectMessage] " + client_name + " " + iter->first + " " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 					std::cout << "Direct Message sent from client " << client_name << " to client " << iter->first << "." << std::endl;
 				}
-				else {  // Target client is not connected
+				else  // Target client is not connected
+				{
 					std::cout << "User not found..." << std::endl;
 					std::string errorMessage = "[SERVER] User \"" + user + "\" is not connected!";
 					send(client_socket, errorMessage.c_str(), static_cast<int>(errorMessage.size()), 0);
 					std::cout << "Error Message sent to client " << client_name << "." << std::endl;
 				}
 			}
-			else { // Broadcast message
-				std::lock_guard<std::mutex> lock(mtx);
-				for (auto const& client : active_clients) {
-					if (client.second != client_socket) {
+			else  // Broadcast message
+			{
+				std::lock_guard<std::mutex> lock(mtx_server);
+				for (auto const& client : active_clients)
+				{
+					if (client.second != client_socket)
+					{
 						std::string finalMessage = "[BroadcastMessage] " + client_name + " " + response;
 						send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 						std::cout << "Broadcast Message sent from client " << client_name << "." << std::endl;
@@ -141,21 +155,23 @@ static void communicateClient(SOCKET client_socket, int connection) {
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
-	mtx.lock();
+	mtx_server.lock();
 	active_clients.erase(client_name);
 
 	// Send the disconnect message to every client
-	for (auto const& client : active_clients) {
+	for (auto const& client : active_clients)
+	{
 		// std::string finalMessage = "[SERVER] : " + client_name + " has left the chat";
 		std::string finalMessage = "[SERVER] " + client_name + " left the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 		std::cout << "Leave Message sent." << std::endl;
 	}
-	mtx.unlock();
+	mtx_server.unlock();
 	closesocket(client_socket);
 }
 
-static int server() {
+static int server()
+{
 	// Server Port
 	unsigned int port = 65432;
 
@@ -163,7 +179,8 @@ static int server() {
 	// - Version Requested as a Word: 2.2
 	// - Pointer to a WSADATA structure
 	WSADATA wsaData;
-	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+	{
 		std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
 		return 1;
 	}
@@ -173,7 +190,8 @@ static int server() {
 	// - Socket Type: TCP (SOCK_STREAM)
 	// - Protocol: TCP (IPPROTO_TCP)
 	SOCKET server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (server_socket == INVALID_SOCKET) {
+	if (server_socket == INVALID_SOCKET)
+	{
 		std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
 		WSACleanup();
 		return 1;
@@ -188,7 +206,8 @@ static int server() {
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(port);		  // Server Port
 	server_address.sin_addr.s_addr = INADDR_ANY;  // Accept any IP connections
-	if (bind(server_socket, (sockaddr*)&server_address, sizeof(server_address)) == SOCKET_ERROR) {
+	if (bind(server_socket, (sockaddr*)&server_address, sizeof(server_address)) == SOCKET_ERROR)
+	{
 		std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
 		closesocket(server_socket);
 		WSACleanup();
@@ -198,7 +217,8 @@ static int server() {
 	// Step 4: Listen for incoming connections
 	// - s: Socket descriptor
 	// - backlog: Max number of pending connections in the queue (SOMAXCONN: system-defined maximum queue length)
-	if (listen(server_socket, SOMAXCONN) == SOCKET_ERROR) {
+	if (listen(server_socket, SOMAXCONN) == SOCKET_ERROR)
+	{
 		std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
 		closesocket(server_socket);
 		WSACleanup();
@@ -209,7 +229,8 @@ static int server() {
 	// Multithreaded Server
 	unsigned int connection = 0;
 
-	while (true) {
+	while (true)
+	{
 		// Step 5: Accept Connection
 		// Blocks until a connection is received; unless in non-blocking mode
 		// Returns a new socket for communication with the client
@@ -219,7 +240,8 @@ static int server() {
 		sockaddr_in client_address = {};
 		int client_address_len = sizeof(client_address);
 		SOCKET client_socket = accept(server_socket, (sockaddr*)&client_address, &client_address_len);
-		if (client_socket == INVALID_SOCKET) {
+		if (client_socket == INVALID_SOCKET)
+		{
 			std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
 			closesocket(server_socket);
 			WSACleanup();
@@ -251,7 +273,8 @@ static int server() {
 	return 0;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	server();
 	return 0;
 }

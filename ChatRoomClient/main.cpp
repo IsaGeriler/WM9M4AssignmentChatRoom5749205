@@ -58,9 +58,11 @@ std::string currentChat = "Broadcast";
 std::string current_client = "";  // Client of the launched instance
 
 // Receive Loop
-static void Receive(SOCKET client_socket) {
+static void Receive(SOCKET client_socket)
+{
     Sound sound;
-    while (isRunning.load(std::memory_order_relaxed)) {
+    while (isRunning.load(std::memory_order_relaxed))
+    {
         // Receive the response from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
         int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
@@ -144,9 +146,11 @@ static void Receive(SOCKET client_socket) {
 }
 
 // Client logic before GUI Programming
-//static void client() {
+//static void client()
+//{
 //    // Connection Loop
-//    while (isRunning) {
+//    while (isRunning)
+//    {
 //        std::cout << "Send message to server: ";
 //        std::getline(std::cin, message);
 //
@@ -158,7 +162,8 @@ static void Receive(SOCKET client_socket) {
 //        // - buf: Pointer to the data buffer
 //        // - len: Length of the data to send
 //        // - flags: Default behaviour (0)
-//        if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR) {
+//        if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR)
+//        {
 //            std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
 //            closesocket(client_socket);
 //            WSACleanup();
@@ -260,7 +265,8 @@ int main(int, char**)
     // - Version Requested as a Word: 2.2
     // - Pointer to a WSADATA structure
     WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+    {
         std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
         return 1;
     }
@@ -270,7 +276,8 @@ int main(int, char**)
     // - Socket Type: TCP (SOCK_STREAM)
     // - Protocol: TCP (IPPROTO_TCP)
     SOCKET client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (client_socket == INVALID_SOCKET) {
+    if (client_socket == INVALID_SOCKET)
+    {
         std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
         WSACleanup();
         return 1;
@@ -283,7 +290,8 @@ int main(int, char**)
     sockaddr_in server_address = {};
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port);
-    if (inet_pton(AF_INET, host, &server_address.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, host, &server_address.sin_addr) <= 0)
+    {
         std::cerr << "Invalid address/Address not supported" << std::endl;
         closesocket(client_socket);
         WSACleanup();
@@ -294,7 +302,8 @@ int main(int, char**)
     // - s: The socket descriptor
     // - name: Pointer to a sockaddr structure (containing the server's address and port)
     // - namelen: Size of the sockaddr structure
-    if (connect(client_socket, reinterpret_cast<sockaddr*>(&server_address), sizeof(server_address)) == SOCKET_ERROR) {
+    if (connect(client_socket, reinterpret_cast<sockaddr*>(&server_address), sizeof(server_address)) == SOCKET_ERROR)
+    {
         std::cerr << "Connection failed with error: " << WSAGetLastError() << std::endl;
         closesocket(client_socket);
         WSACleanup();
