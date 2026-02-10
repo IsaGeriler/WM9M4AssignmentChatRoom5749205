@@ -135,11 +135,13 @@ static void Receive(SOCKET client_socket)
         else if (bytes_received == 0)
         {
             std::cout << "Connection closed by server." << std::endl;
+            isRunning.store(false, std::memory_order_relaxed);
             break;
         }
         else
         {
             std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
+            isRunning.store(false, std::memory_order_relaxed);
             break;
         }
     }
@@ -462,6 +464,11 @@ int main(int, char**)
             // List the broadcasting message here...
             // Nice to have: Give each user an unique color to distinguish each other
 
+            for (size_t i = 0; i < allChatsHistory["Broadcast"].size(); i++)
+            {
+                ImGui::TextWrapped("%s", allChatsHistory["Broadcast"][i].c_str());
+            }
+
             ImGui::EndChild();
             
             ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer));
@@ -520,7 +527,7 @@ int main(int, char**)
                 // ImGui::Text("This is only for debugging... send logic will go here...");
                 // Construct the message buffer to a string that the server can understand
                 std::string message(privateMessageBuffer);
-                std::string finalMessage = "/dm GetClienName " + message;
+                std::string finalMessage = "/dm " + currentChat + message;
 
                 if (send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0) == SOCKET_ERROR)
                 {

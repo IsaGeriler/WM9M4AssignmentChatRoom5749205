@@ -26,7 +26,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 {
 	// Username Loop
 	std::string client_name;
-	while (isRunning)
+	while (true)
 	{
 		// Check user join or not...
 		char buffer[BUFFER_SIZE] = { 0 };
@@ -46,7 +46,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 				std::cout << client_name << " joined the chat..." << std::endl;
 				std::string finalMessage = "UNIQUE";
 				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-				isRunning = false;
+				break;
 			}
 			else
 			{
@@ -57,40 +57,23 @@ static void communicateClient(SOCKET client_socket, int connection)
 	}
 
 	// Receive who joined before this client
-	mtx_server.lock();
 	for (auto const& client : active_clients)
 	{
-		// if (client.second != client_socket) {
-			// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
-			// std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
-			// send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-			// std::cout << "Join Message sent." << std::endl;
-		// }
 		std::string finalMessage = "[SERVER] " + client.first + " joined the chat";
 		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
-	mtx_server.unlock();
 	std::cout << "Previous User Join Message sent." << std::endl;
 
 	// Send user connected message to every client
-	mtx_server.lock();
 	for (auto const& client : active_clients)
 	{
-		// if (client.second != client_socket)
-		// {
-		// std::string finalMessage = "[SERVER] : " + client_name + " has joined the chat";
-		// std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
-		// send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-		// std::cout << "Join Message sent." << std::endl;
-		// }
 		std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
-	mtx_server.unlock();
 	std::cout << "Current User Join Message sent." << std::endl;
 
 	// Connection Loop
-	while (true)   //isRunning
+	while (isRunning)
 	{
 		// Step 6: Communicate with the client
 		char buffer[BUFFER_SIZE] = { 0 };
@@ -155,7 +138,6 @@ static void communicateClient(SOCKET client_socket, int connection)
 	std::cout << "Closing the connection to client" << connection << "!" << std::endl;
 
 	// Step 7: Cleanup
-	mtx_server.lock();
 	active_clients.erase(client_name);
 
 	// Send the disconnect message to every client
@@ -166,7 +148,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 		std::cout << "Leave Message sent." << std::endl;
 	}
-	mtx_server.unlock();
+
 	closesocket(client_socket);
 }
 
