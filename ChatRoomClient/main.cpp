@@ -108,15 +108,21 @@ static void Receive(SOCKET client_socket)
                     if (strcmp(message.c_str(), "joined the chat") == 0)
                     {
                         auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
-                        if (iter == activeClients.end()) activeClients.emplace_back(sender_username);
-                        allChatsHistory["Broadcast"].emplace_back(buffer);
+                        if (iter == activeClients.end())
+                        {
+                            activeClients.emplace_back(sender_username);
+                            // allChatsHistory["Broadcast"].emplace_back(buffer);
+                        }
                     }
 
                     else if (strcmp(message.c_str(), "left the chat") == 0)
                     {
                         auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
-                        if (iter != activeClients.end()) activeClients.erase(iter);
-                        allChatsHistory["Broadcast"].emplace_back(buffer);
+                        if (iter != activeClients.end())
+                        {
+                            activeClients.erase(iter);
+                            allChatsHistory["Broadcast"].emplace_back(buffer);
+                        }
                     }
 
                     else if (strcmp(message.c_str(), "is not connected!") == 0)
@@ -171,7 +177,7 @@ int main(int, char**)
     // Create application window
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"WM9M4: Assignment - ChatRoom (5749205)", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -436,7 +442,7 @@ int main(int, char**)
             {
                 ImGui::Begin("Chat Client", &show_chat_window);
                 ImGui::BeginChild("Users", ImVec2(225, 500), true);
-                ImGui::Text("Users:");
+                ImGui::Text("Active Users:");
                 ImGui::Separator();
                 ImGui::BeginChild("UserList", ImVec2(0, 0), false);
 

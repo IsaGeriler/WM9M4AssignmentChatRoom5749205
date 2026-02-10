@@ -18,9 +18,11 @@ static std::map<std::string, SOCKET> active_clients;
 
 // Mutex for thread safety
 std::mutex mtx_server;
+std::mutex mtx_broadcast;
 
 // Store isRunning as atomic to prevent race conditions
 std::atomic<bool> isRunning = true;
+std::atomic<bool> initialConnection = true;
 
 static void communicateClient(SOCKET client_socket, int connection)
 {
@@ -48,8 +50,6 @@ static void communicateClient(SOCKET client_socket, int connection)
 			auto iter = active_clients.find(client_name);
 			if (iter == active_clients.end())
 			{
-				std::lock_guard<std::mutex> lock(mtx_server);
-				active_clients.emplace(client_name, client_socket);
 				std::cout << client_name << " joined the chat..." << std::endl;
 				std::string finalMessage = "UNIQUE";
 				send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
@@ -63,16 +63,19 @@ static void communicateClient(SOCKET client_socket, int connection)
 		}
 	}
 
-	//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	// std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
 	// Send previous user connected message to the current client (except the client themselves)
+	mtx_broadcast.lock();
 	for (auto const& client : active_clients)
 	{
 		if (strcmp(client_name.c_str(), client.first.c_str()) == 0) continue;
 		std::string finalMessage = "[SERVER] " + client.first + " joined the chat" + '\n';
 		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
+	active_clients.emplace(client_name, client_socket);
 	std::cout << "Current User Join Message sent." << std::endl;
+	mtx_broadcast.unlock();
 
 	// Send user connected message to every client (except the client themselves)
 	for (auto const& client : active_clients)
@@ -81,7 +84,6 @@ static void communicateClient(SOCKET client_socket, int connection)
 		std::string finalMessage = "[SERVER] " + client_name + " joined the chat" + '\n';
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
-	std::cout << "Current User Join Message sent." << std::endl;
 
 	// Connection Loop
 	while (isRunning)
