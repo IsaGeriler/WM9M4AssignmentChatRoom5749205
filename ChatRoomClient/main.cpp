@@ -154,35 +154,6 @@ static void Receive(SOCKET client_socket)
         }
     }
 }
-
-// Client logic before GUI Programming
-//static void client()
-//{
-//    // Connection Loop
-//    while (isRunning)
-//    {
-//        std::cout << "Send message to server: ";
-//        std::getline(std::cin, message);
-//
-//        // /exit --> Exits the chatroom
-//        if (message == "/exit") isRunning = false;
-//
-//        // Step 5: Sending data to the server
-//        // - s: The socket descriptor
-//        // - buf: Pointer to the data buffer
-//        // - len: Length of the data to send
-//        // - flags: Default behaviour (0)
-//        if (send(client_socket, message.c_str(), static_cast<int>(message.size()), 0) == SOCKET_ERROR)
-//        {
-//            std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
-//            closesocket(client_socket);
-//            WSACleanup();
-//            return;
-//        }
-//        // std::cout << "Sent: \"" << message << "\" to the server!" << std::endl;
-//    }
-//    std::cout << "Closing the connection!" << std::endl;
-//}
 // --- CLIENT CODES FOR CHAT ROOM END ---
 
 // Main code

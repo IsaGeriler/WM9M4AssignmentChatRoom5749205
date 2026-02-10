@@ -114,6 +114,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 					SOCKET target = iter->second;
 					std::string finalMessage = "[DirectMessage] " + client_name + " " + iter->first + " " + message;
 					send(target, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
+					send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 					std::cout << "Direct Message sent from client " << client_name << " to client " << iter->first << "." << std::endl;
 				}
 				else  // Target client is not connected
