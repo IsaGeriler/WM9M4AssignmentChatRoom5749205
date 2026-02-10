@@ -53,7 +53,7 @@ std::mutex mtx_client_list;
 // Store the "usernames - chats" as a pair, in a map (first element of the list being "Broadcast" chat)
 std::map<std::string, std::vector<std::string>> allChatsHistory;
 std::set<std::string> activeChats;
-std::vector<std::string> activeClients;
+static std::vector<std::string> activeClients;
 
 // Views the current chat; default is set as "Broadcast"
 std::string currentChat = "Broadcast";
@@ -63,90 +63,94 @@ std::string current_client = "";  // Client of the launched instance
 static void Receive(SOCKET client_socket)
 {
     Sound sound;
-    while (isRunning/*isRunning.load(std::memory_order_relaxed)*/)
+    while (isRunning)
     {
         // Receive the response from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
         int bytes_received = recv(client_socket, buffer, DEFAULT_BUFFER_SIZE - 1, 0);
 
-        std::string command = "";
-        std::string sender_username = "";
-        std::string target_username = "";  // for DirectMessage only
-        std::string message = "";
-
         if (bytes_received > 0)
         {
             buffer[bytes_received] = '\0'; // Null-terminate the received data
             
-            std::stringstream ss(buffer);
-            std::cout << buffer << std::endl;
+            std::stringstream stream_from_server(buffer);
+            std::string current_line;
 
-            if (buffer == "/exit") isRunning = false; // isRunning.store(false, std::memory_order_relaxed);
-
-            // buffer = [Handshake/MessageType] [ClientName] [MessageBody]
-            ss >> command;          // Gets the handshake protocol/type of message came
-            ss >> sender_username;  // Gets the client name where the message came from
-
-            std::cout << command << std::endl;
-            std::cout << sender_username << std::endl;
-            // std::cout << (strcmp(command.c_str(), "[SERVER]")) << '\n';
-
-            if (strcmp(command.c_str(), "[SERVER]") == 0)
+            while (std::getline(stream_from_server, current_line, '\n'))
             {
-                std::lock_guard<std::mutex> lock(mtx_client);
-                std::ws(ss);
-                std::getline(ss, message);  // Gets the rest of the message body
-                std::cout << message << '\n';
-                
-                if (strcmp(message.c_str(), "joined the chat") == 0) 
+                if (current_line.empty()) continue;
+                std::stringstream line_ss(current_line);
+
+                std::string command = "";
+                std::string sender_username = "";
+                std::string target_username = "";  // for DirectMessage only
+                std::string message = "";
+
+                // buffer = [Handshake/MessageType] [ClientName] [MessageBody]
+                line_ss >> command;          // Gets the handshake protocol/type of message came
+                line_ss >> sender_username;  // Gets the client name where the message came from
+
+                if (buffer == "/exit") isRunning = false; // isRunning.store(false, std::memory_order_relaxed);
+
+                std::cout << command << std::endl;
+                std::cout << sender_username << std::endl;
+                std::cout << (int)sender_username.back() << std::endl;
+                // std::cout << (strcmp(command.c_str(), "[SERVER]")) << '\n';
+
+                if (strcmp(command.c_str(), "[SERVER]") == 0)
                 {
-                    auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
-                    if (iter == activeClients.end()) activeClients.emplace_back(sender_username);
-                    allChatsHistory["Broadcast"].emplace_back(buffer);
+                    std::lock_guard<std::mutex> lock(mtx_client);
+                    std::ws(line_ss);
+                    std::getline(line_ss, message);  // Gets the rest of the message body
+                    message.erase(std::remove(message.begin(), message.end(), '\n'), message.end());
+                    std::cout << message << '\n';
+
+                    if (strcmp(message.c_str(), "joined the chat") == 0)
+                    {
+                        auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
+                        if (iter == activeClients.end()) activeClients.emplace_back(sender_username);
+                        allChatsHistory["Broadcast"].emplace_back(buffer);
+                    }
+
+                    else if (strcmp(message.c_str(), "left the chat") == 0)
+                    {
+                        auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
+                        if (iter != activeClients.end()) activeClients.erase(iter);
+                        allChatsHistory["Broadcast"].emplace_back(buffer);
+                    }
+                    //sound.playServerSound();
                 }
-                
-                else if (strcmp(message.c_str(), "left the chat") == 0)
+                else if (strcmp(command.c_str(), "[DirectMessage]") == 0)
                 {
-                    auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
-                    if (iter != activeClients.end()) activeClients.erase(iter);
-                    allChatsHistory["Broadcast"].emplace_back(buffer);
+                    std::lock_guard<std::mutex> lock(mtx_client);
+                    line_ss >> target_username;
+                    std::ws(line_ss);
+                    std::getline(line_ss, message);  // Gets the rest of the message body
+                    std::string finalMessage = sender_username + ": " + message;
+                    allChatsHistory[sender_username].emplace_back(finalMessage);
+                    allChatsHistory[target_username].emplace_back(finalMessage);
+                    //sound.playDmSound();
                 }
-                //sound.playServerSound();
-            }
-
-            else if (strcmp(command.c_str(), "[DirectMessage]") == 0)
-            {
-                std::lock_guard<std::mutex> lock(mtx_client);
-                ss >> target_username;
-                std::ws(ss);
-                std::getline(ss, message);  // Gets the rest of the message body
-                std::string finalMessage = sender_username + ": " + message;
-                allChatsHistory[sender_username].emplace_back(finalMessage);
-                allChatsHistory[target_username].emplace_back(finalMessage);
-                //sound.playDmSound();
-            }
-
-            else if (strcmp(command.c_str(), "[BroadcastMessage]") == 0)
-            {
-                std::lock_guard<std::mutex> lock(mtx_client);
-                std::ws(ss);
-                std::getline(ss, message);  // Gets the rest of the message body
-                std::string finalMessage = sender_username + ": " + message;
-                allChatsHistory["Broadcast"].emplace_back(finalMessage);
-                //sound.playBroadcastSound();
+                else if (strcmp(command.c_str(), "[BroadcastMessage]") == 0)
+                {
+                    std::lock_guard<std::mutex> lock(mtx_client);
+                    std::ws(line_ss);
+                    std::getline(line_ss, message);  // Gets the rest of the message body
+                    std::string finalMessage = sender_username + ": " + message;
+                    allChatsHistory["Broadcast"].emplace_back(finalMessage);
+                    //sound.playBroadcastSound();
+                }
             }
         }
         else if (bytes_received == 0)
         {
             std::cout << "Connection closed by server." << std::endl;
-            isRunning.store(false, std::memory_order_relaxed);
-            break;
+            isRunning = false;
         }
         else
         {
             std::cerr << "Receive failed with error: " << WSAGetLastError() << std::endl;
-            isRunning.store(false, std::memory_order_relaxed);
-            break;
+            isRunning = false;
         }
     }
 }
@@ -453,6 +457,7 @@ int main(int, char**)
             mtx_client_list.lock();
             for (size_t i = 0; i < activeClients.size(); i++)
             {
+                // std::cout << activeClients[i].c_str() << '\n';
                 if (strcmp(current_client.c_str(), activeClients[i].c_str()) == 0) continue;
                 if (ImGui::Selectable(activeClients[i].c_str())) activeChats.insert(activeClients[i].c_str());
             }

@@ -14,7 +14,7 @@
 constexpr unsigned int BUFFER_SIZE = 1024;
 
 // Store active clients in a map; paired as <ClientName, ClientSocket>
-std::map<std::string, SOCKET> active_clients;
+static std::map<std::string, SOCKET> active_clients;
 
 // Mutex for thread safety
 std::mutex mtx_server;
@@ -56,11 +56,13 @@ static void communicateClient(SOCKET client_socket, int connection)
 		}
 	}
 
+	//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
 	// Send previous user connected message to the current client (except the client themselves)
 	for (auto const& client : active_clients)
 	{
 		if (strcmp(client_name.c_str(), client.first.c_str()) == 0) continue;
-		std::string finalMessage = "[SERVER] " + client.first + " joined the chat";
+		std::string finalMessage = "[SERVER] " + client.first + " joined the chat" + '\n';
 		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
 	std::cout << "Current User Join Message sent." << std::endl;
@@ -69,7 +71,7 @@ static void communicateClient(SOCKET client_socket, int connection)
 	for (auto const& client : active_clients)
 	{
 		if (strcmp(client_name.c_str(), client.first.c_str()) == 0) continue;
-		std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
+		std::string finalMessage = "[SERVER] " + client_name + " joined the chat" + '\n';
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
 	std::cout << "Current User Join Message sent." << std::endl;
