@@ -348,7 +348,7 @@ int main(int, char**)
 
             // Textbox to type username in the window
             ImGui::Text("Please Enter Your Username");
-            ImGui::InputText("##Username: ", usernameBuffer, sizeof(usernameBuffer));
+            bool username_entered = ImGui::InputText("##Username: ", usernameBuffer, sizeof(usernameBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
 
             ImGui::SameLine();
 
@@ -364,7 +364,7 @@ int main(int, char**)
             ImGui::Text(login_status.c_str());
             std::string str(usernameBuffer);
 
-            if (login_button_clicked)
+            if (login_button_clicked || username_entered)
             {
                 if (str.find(' ') != std::string::npos)
                 {
@@ -457,7 +457,7 @@ int main(int, char**)
 
             ImGui::EndChild();
             
-            ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer));
+            bool broadcast_sent = ImGui::InputText("##Message: ", messageBuffer, sizeof(messageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
             
             ImGui::SameLine();
             ImGui::Text("Message");
@@ -469,7 +469,7 @@ int main(int, char**)
             if (ImGui::Button("Send")) send_button_clicked = !send_button_clicked;
             ImGui::EndDisabled();
 
-            if (send_button_clicked)
+            if (send_button_clicked || broadcast_sent)
             {
                 // ImGui::Text("This is only for debugging... send logic will go here...");
                 // Send the message to the server
@@ -504,7 +504,7 @@ int main(int, char**)
 
                     ImGui::EndChild();
 
-                    ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer));
+                    bool direct_sent = ImGui::InputText("##PrivateMessage: ", privateMessageBuffer, sizeof(privateMessageBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
 
                     ImGui::SameLine();
                     ImGui::Text("Private Message");
@@ -516,7 +516,7 @@ int main(int, char**)
                     if (ImGui::Button("Send Private")) send_private_button_clicked = !send_private_button_clicked;
                     ImGui::EndDisabled();
 
-                    if (send_private_button_clicked)
+                    if (send_private_button_clicked || direct_sent)
                     {
                         // ImGui::Text("This is only for debugging... send logic will go here...");
                         // Construct the message buffer to a string that the server can understand
