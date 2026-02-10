@@ -61,7 +61,7 @@ std::string current_client = "";  // Client of the launched instance
 static void Receive(SOCKET client_socket)
 {
     Sound sound;
-    while (isRunning.load(std::memory_order_relaxed))
+    while (isRunning/*isRunning.load(std::memory_order_relaxed)*/)
     {
         // Receive the response from the server
         char buffer[DEFAULT_BUFFER_SIZE] = { 0 };
@@ -79,7 +79,7 @@ static void Receive(SOCKET client_socket)
             std::stringstream ss(buffer);
             std::cout << buffer << std::endl;
 
-            if (buffer == "/exit") isRunning.store(false, std::memory_order_relaxed);
+            if (buffer == "/exit") isRunning = false; // isRunning.store(false, std::memory_order_relaxed);
 
             // buffer = [Handshake/MessageType] [ClientName] [MessageBody]
             ss >> command;          // Gets the handshake protocol/type of message came
@@ -100,12 +100,14 @@ static void Receive(SOCKET client_socket)
                 {
                     auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
                     if (iter == activeClients.end()) activeClients.emplace_back(sender_username);
+                    allChatsHistory["Broadcast"].emplace_back(buffer);
                 }
                 
                 else if (strcmp(message.c_str(), "left the chat") == 0)
                 {
                     auto iter = std::find(activeClients.begin(), activeClients.end(), sender_username);
                     if (iter != activeClients.end()) activeClients.erase(iter);
+                    allChatsHistory["Broadcast"].emplace_back(buffer);
                 }
                 //sound.playServerSound();
             }

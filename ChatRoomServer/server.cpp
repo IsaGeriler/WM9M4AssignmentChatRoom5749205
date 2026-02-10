@@ -56,21 +56,16 @@ static void communicateClient(SOCKET client_socket, int connection)
 		}
 	}
 
-	// Receive who joined before this client
+	// Send user connected message to every client (except the client themselves)
+	mtx_server.lock();
 	for (auto const& client : active_clients)
 	{
-		std::string finalMessage = "[SERVER] " + client.first + " joined the chat";
-		send(client_socket, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
-	}
-	std::cout << "Previous User Join Message sent." << std::endl;
-
-	// Send user connected message to every client
-	for (auto const& client : active_clients)
-	{
+		if (strcmp(client_name.c_str(), client.first.c_str()) == 0) continue;
 		std::string finalMessage = "[SERVER] " + client_name + " joined the chat";
 		send(client.second, finalMessage.c_str(), static_cast<int>(finalMessage.size()), 0);
 	}
 	std::cout << "Current User Join Message sent." << std::endl;
+	mtx_server.unlock();
 
 	// Connection Loop
 	while (isRunning)
