@@ -63,10 +63,11 @@ std::string current_client = "";  // Client of the launched instance
 unsigned int lastMessageCount = 0;
 std::map<std::string, unsigned int> lastPrivateMessageCount;
 
+Sound sound;
+
 // Receive Loop
 static void Receive(SOCKET client_socket)
 {
-    Sound sound;
     while (isRunning)
     {
         // Receive the response from the server
@@ -116,6 +117,7 @@ static void Receive(SOCKET client_socket)
                         {
                             activeClients.emplace_back(sender_username);
                             // allChatsHistory["Broadcast"].emplace_back(buffer);
+                            // playServerSound();
                         }
                     }
 
@@ -126,14 +128,16 @@ static void Receive(SOCKET client_socket)
                         {
                             activeClients.erase(iter);
                             allChatsHistory["Broadcast"].emplace_back(buffer);
+                            sound.playServerSound();
                         }
                     }
 
                     else if (strcmp(message.c_str(), "is not connected!") == 0)
                     {
                         allChatsHistory[sender_username].emplace_back(buffer);
+                        sound.playServerSound();
                     }
-                    //sound.playServerSound();
+                    
                 }
                 else if (strcmp(command.c_str(), "[DirectMessage]") == 0)
                 {
@@ -144,7 +148,7 @@ static void Receive(SOCKET client_socket)
                     std::string finalMessage = sender_username + ": " + message;
                     allChatsHistory[sender_username].emplace_back(finalMessage);
                     allChatsHistory[target_username].emplace_back(finalMessage);
-                    //sound.playDmSound();
+                    sound.playDmSound();
                 }
                 else if (strcmp(command.c_str(), "[BroadcastMessage]") == 0)
                 {
@@ -153,7 +157,7 @@ static void Receive(SOCKET client_socket)
                     std::getline(line_ss, message);  // Gets the rest of the message body
                     std::string finalMessage = sender_username + ": " + message;
                     allChatsHistory["Broadcast"].emplace_back(finalMessage);
-                    //sound.playBroadcastSound();
+                    sound.playBroadcastSound();
                 }
             }
         }
@@ -507,7 +511,7 @@ int main(int, char**)
                     memset(messageBuffer, '\0', sizeof(messageBuffer));  // Clear the message buffer after everything
                     send_button_clicked = false;
                 }
-
+                
                 ImGui::SetNextWindowSize(ImVec2(1000, 400));
                 ImGui::SetWindowSize(ImVec2(100, 100));
 
