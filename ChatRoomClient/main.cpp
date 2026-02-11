@@ -467,7 +467,7 @@ int main(int, char**)
 
                 ImGui::SameLine();
 
-                ImGui::BeginChild("Messages", ImVec2(635, 500), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+                ImGui::BeginChild("Messages", ImVec2(635, 500), true);
 
                 for (size_t i = 0; i < allChatsHistory["Broadcast"].size(); i++)
                 {
@@ -517,7 +517,7 @@ int main(int, char**)
                     std::string window_name = "Private Chat with " + client;
                     if (ImGui::Begin(window_name.c_str()))
                     {
-                        ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+                        ImGui::BeginChild("PrivateMessage", ImVec2(975, 285), true);
 
                         for (size_t i = 0; i < allChatsHistory[client].size(); i++)
                         {
